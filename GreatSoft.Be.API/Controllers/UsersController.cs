@@ -57,6 +57,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "SysAdmin")]
     [ProducesResponseType(typeof(UserDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<UserDto>> CreateUser([FromBody] CreateUserRequest request)
@@ -126,4 +127,5 @@ public class UsersController : ControllerBase
         }
     }
 }
+
 

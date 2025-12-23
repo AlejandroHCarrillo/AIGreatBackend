@@ -1,6 +1,7 @@
 using System.Text;
 using GreatSoft.Be.Application.Interfaces;
 using GreatSoft.Be.Application.Services;
+using GreatSoft.Be.Domain.Entities;
 using GreatSoft.Be.Infrastructure.Data;
 using GreatSoft.Be.Infrastructure.Repositories;
 using GreatSoft.Be.Infrastructure.Services;
@@ -16,13 +17,35 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        // Database
-        services.AddDbContext<ApplicationDbContext>(options =>
-            options.UseInMemoryDatabase("GreatSoftDb"));
+        // Database - Using InMemory for now, can be changed to SQL Server
+        var connectionString = configuration.GetConnectionString("DefaultConnection");
+        
+        if (!string.IsNullOrEmpty(connectionString))
+        {
+            services.AddDbContext<ApplicationDbContext>(options =>
+                options.UseSqlServer(connectionString));
+        }
+        else
+        {
+            // Fallback to InMemory if no connection string is provided
+            services.AddDbContext<ApplicationDbContext>(options =>
+                options.UseInMemoryDatabase("GreatSoftDb"));
+        }
 
         // Repositories
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRoleRepository, RoleRepository>();
+        services.AddScoped<ICompanyRepository, CompanyRepository>();
+        services.AddScoped<ICompanyUserRepository, CompanyUserRepository>();
+        services.AddScoped<ICommunityRepository, CommunityRepository>();
+        services.AddScoped<IRepository<CommunityType>, Repository<CommunityType>>();
+        services.AddScoped<IResidentVisitRepository, ResidentVisitRepository>();
+        services.AddScoped<IVehicleRepository, VehicleRepository>();
+        services.AddScoped<IPetRepository, PetRepository>();
+        services.AddScoped<IResidentProviderRepository, ResidentProviderRepository>();
+        services.AddScoped<IRepository<Resident>, Repository<Resident>>();
+        services.AddScoped<IRepository<VehicleType>, Repository<VehicleType>>();
+        services.AddScoped<IRepository<ProviderServiceType>, Repository<ProviderServiceType>>();
 
         // Services
         services.AddScoped<IPasswordService, PasswordService>();
@@ -32,6 +55,12 @@ public static class DependencyInjection
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IRoleService, RoleService>();
+        services.AddScoped<ICompanyService, CompanyService>();
+        services.AddScoped<ICommunityService, CommunityService>();
+        services.AddScoped<IResidentVisitService, ResidentVisitService>();
+        services.AddScoped<IVehicleService, VehicleService>();
+        services.AddScoped<IPetService, PetService>();
+        services.AddScoped<IResidentProviderService, ResidentProviderService>();
 
         // JWT Authentication
         var jwtSettings = configuration.GetSection("JwtSettings");

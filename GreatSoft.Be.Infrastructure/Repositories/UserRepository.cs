@@ -15,6 +15,8 @@ public class UserRepository : Repository<User>, IUserRepository
     {
         return await _dbSet
             .Include(u => u.Role)
+            .Include(u => u.CompanyUsers)
+                .ThenInclude(cu => cu.Company)
             .FirstOrDefaultAsync(u => u.Username == username);
     }
 
@@ -22,6 +24,8 @@ public class UserRepository : Repository<User>, IUserRepository
     {
         return await _dbSet
             .Include(u => u.Role)
+            .Include(u => u.CompanyUsers)
+                .ThenInclude(cu => cu.Company)
             .FirstOrDefaultAsync(u => u.Email == email);
     }
 
@@ -29,6 +33,8 @@ public class UserRepository : Repository<User>, IUserRepository
     {
         return await _dbSet
             .Include(u => u.Role)
+            .Include(u => u.CompanyUsers)
+                .ThenInclude(cu => cu.Company)
             .FirstOrDefaultAsync(u => u.Username == usernameOrEmail || u.Email == usernameOrEmail);
     }
 
@@ -36,6 +42,8 @@ public class UserRepository : Repository<User>, IUserRepository
     {
         return await _dbSet
             .Include(u => u.Role)
+            .Include(u => u.CompanyUsers)
+                .ThenInclude(cu => cu.Company)
             .FirstOrDefaultAsync(u => u.Id == id);
     }
 
@@ -43,6 +51,8 @@ public class UserRepository : Repository<User>, IUserRepository
     {
         return await _dbSet
             .Include(u => u.Role)
+            .Include(u => u.CompanyUsers)
+                .ThenInclude(cu => cu.Company)
             .ToListAsync();
     }
 }

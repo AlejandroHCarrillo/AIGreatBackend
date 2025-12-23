@@ -57,7 +57,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI(c =>
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "GreatSoft.Be API V1");
-        c.RoutePrefix = string.Empty; // Set Swagger UI at the app's root
+        c.RoutePrefix = "swagger"; // Set Swagger UI at /swagger
     });
 }
 
@@ -68,107 +68,30 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-// Seed initial data
+// Ensure database is created and seed initial data
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
-    await SeedDataAsync(services);
+    var context = services.GetRequiredService<ApplicationDbContext>();
+    var passwordService = services.GetRequiredService<GreatSoft.Be.Application.Interfaces.IPasswordService>();
+    var configuration = services.GetRequiredService<IConfiguration>();
+    
+    // Check if database should be recreated
+    var recreateDatabase = configuration.GetValue<bool>("DatabaseSettings:RecreateDatabaseOnStartup", false);
+    
+    if (recreateDatabase)
+    {
+        // Delete and recreate database
+        await DataSeeder.EnsureDatabaseCreatedAsync(context);
+    }
+    else
+    {
+        // Ensure database exists (create if not exists, but don't delete existing)
+        await context.Database.EnsureCreatedAsync();
+    }
+    
+    // Seed initial data
+    await DataSeeder.SeedDataAsync(context, passwordService);
 }
 
 app.Run();
-
-static async Task SeedDataAsync(IServiceProvider services)
-{
-    var context = services.GetRequiredService<ApplicationDbContext>();
-    var passwordService = services.GetRequiredService<GreatSoft.Be.Application.Interfaces.IPasswordService>();
-
-    // Check if roles already exist
-    if (context.Roles.Any())
-    {
-        return;
-    }
-
-    // Create roles
-    var roles = new[]
-    {
-        new GreatSoft.Be.Domain.Entities.Role
-        {
-            Id = Guid.NewGuid(),
-            Name = "Admin",
-            Description = "Administrator role with full access",
-            RoleType = "Admin",
-            CreatedAt = DateTime.UtcNow
-        },
-        new GreatSoft.Be.Domain.Entities.Role
-        {
-            Id = Guid.NewGuid(),
-            Name = "SysAdmin",
-            Description = "System Administrator role",
-            RoleType = "SysAdmin",
-            CreatedAt = DateTime.UtcNow
-        },
-        new GreatSoft.Be.Domain.Entities.Role
-        {
-            Id = Guid.NewGuid(),
-            Name = "Manager",
-            Description = "Manager role",
-            RoleType = "Manager",
-            CreatedAt = DateTime.UtcNow
-        },
-        new GreatSoft.Be.Domain.Entities.Role
-        {
-            Id = Guid.NewGuid(),
-            Name = "Resident",
-            Description = "Resident role",
-            RoleType = "Resident",
-            CreatedAt = DateTime.UtcNow
-        },
-        new GreatSoft.Be.Domain.Entities.Role
-        {
-            Id = Guid.NewGuid(),
-            Name = "ResidentPower",
-            Description = "Resident Power role",
-            RoleType = "ResidentPower",
-            CreatedAt = DateTime.UtcNow
-        },
-        new GreatSoft.Be.Domain.Entities.Role
-        {
-            Id = Guid.NewGuid(),
-            Name = "Vigilance",
-            Description = "Vigilance role",
-            RoleType = "Vigilance",
-            CreatedAt = DateTime.UtcNow
-        },
-        new GreatSoft.Be.Domain.Entities.Role
-        {
-            Id = Guid.NewGuid(),
-            Name = "Supervision",
-            Description = "Supervision role",
-            RoleType = "Supervision",
-            CreatedAt = DateTime.UtcNow
-        }
-    };
-
-    context.Roles.AddRange(roles);
-    await context.SaveChangesAsync();
-
-    // Get Admin role
-    var adminRole = roles.First(r => r.Name == "Admin");
-
-    // Create admin user
-    var adminUser = new GreatSoft.Be.Domain.Entities.User
-    {
-        Id = Guid.NewGuid(),
-        FirstName = "Admin",
-        LastName = "User",
-        Username = "elgrandeahc",
-        Email = "admin@greatsoft.com",
-        PasswordHash = passwordService.HashPassword("ahc123"),
-        IsActive = true,
-        CreatedAt = DateTime.UtcNow,
-        RoleId = adminRole.Id
-    };
-
-    context.Users.Add(adminUser);
-    await context.SaveChangesAsync();
-}

@@ -11,5 +11,12 @@ public class UserDto
     public DateTime CreatedAt { get; set; }
     public Guid RoleId { get; set; }
     public string RoleName { get; set; } = string.Empty;
+    public List<CompanyInfoDto> Companies { get; set; } = new List<CompanyInfoDto>();
+}
+
+public class CompanyInfoDto
+{
+    public Guid CompanyId { get; set; }
+    public string CompanyName { get; set; } = string.Empty;
 }
 

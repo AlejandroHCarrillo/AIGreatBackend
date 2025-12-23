@@ -11,8 +11,14 @@ public class User
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; }
     
-    // Navigation property
+    // Navigation properties
     public Guid RoleId { get; set; }
     public Role Role { get; set; } = null!;
+    
+    // CompanyUsers relationship (many-to-many through CompanyUser)
+    public ICollection<CompanyUser> CompanyUsers { get; set; } = new List<CompanyUser>();
+    
+    // ResidentUser relationship (one-to-one)
+    public ResidentUser? ResidentUser { get; set; }
 }
 

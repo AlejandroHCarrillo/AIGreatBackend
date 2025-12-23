@@ -108,12 +108,9 @@ public class AuthService : IAuthService
         
         if (user == null)
         {
-            // Por seguridad, no revelamos si el email existe o no
             return true;
         }
 
-        // En una implementación real, aquí se enviaría un email con un token
-        // Por ahora, solo retornamos true
         _logger.LogInformation($"Password reset requested for user: {user.Username}");
         return true;
     }
@@ -127,12 +124,11 @@ public class AuthService : IAuthService
             throw new InvalidOperationException("User not found");
         }
 
-        // En una implementación real, aquí se validaría el token
-        // Por ahora, solo actualizamos la contraseña
         user.PasswordHash = _passwordService.HashPassword(request.NewPassword);
         await _userRepository.UpdateAsync(user);
 
         return true;
     }
 }
+
 

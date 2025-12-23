@@ -1,0 +1,93 @@
+using GreatSoft.Be.Application.DTOs.Community;
+using GreatSoft.Be.Application.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace GreatSoft.Be.API.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+[Authorize]
+public class CommunitiesController : ControllerBase
+{
+    private readonly ICommunityService _communityService;
+
+    public CommunitiesController(ICommunityService communityService)
+    {
+        _communityService = communityService;
+    }
+
+    /// <summary>
+    /// Get all communities
+    /// </summary>
+    [HttpGet]
+    public async Task<ActionResult<IEnumerable<CommunityDto>>> GetAllCommunities()
+    {
+        var communities = await _communityService.GetAllCommunitiesAsync();
+        return Ok(communities);
+    }
+
+    /// <summary>
+    /// Get community by ID
+    /// </summary>
+    [HttpGet("{id}")]
+    public async Task<ActionResult<CommunityDto>> GetCommunityById(Guid id)
+    {
+        var community = await _communityService.GetCommunityByIdAsync(id);
+        if (community == null)
+        {
+            return NotFound();
+        }
+        return Ok(community);
+    }
+
+    /// <summary>
+    /// Create a new community
+    /// </summary>
+    [HttpPost]
+    public async Task<ActionResult<CommunityDto>> CreateCommunity(CreateCommunityRequest request)
+    {
+        try
+        {
+            var community = await _communityService.CreateCommunityAsync(request);
+            return CreatedAtAction(nameof(GetCommunityById), new { id = community.Id }, community);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Update an existing community
+    /// </summary>
+    [HttpPut("{id}")]
+    public async Task<ActionResult<CommunityDto>> UpdateCommunity(Guid id, UpdateCommunityRequest request)
+    {
+        try
+        {
+            var community = await _communityService.UpdateCommunityAsync(id, request);
+            return Ok(community);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Delete a community
+    /// </summary>
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteCommunity(Guid id)
+    {
+        var deleted = await _communityService.DeleteCommunityAsync(id);
+        if (!deleted)
+        {
+            return NotFound();
+        }
+        return NoContent();
+    }
+}
+
+
