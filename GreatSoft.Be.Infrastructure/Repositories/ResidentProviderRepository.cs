@@ -11,26 +11,19 @@ public class ResidentProviderRepository : Repository<ResidentProvider>, IResiden
     {
     }
 
-    public async Task<ResidentProvider?> GetByEmailAsync(string email)
+    public override async Task<ResidentProvider?> GetByIdAsync(int id)
     {
         return await _dbSet
-            .Include(p => p.ProviderServiceType)
-            .FirstOrDefaultAsync(p => p.Email == email);
+            .Include(rp => rp.Community)
+            .FirstOrDefaultAsync(rp => rp.Id == id);
     }
 
-    public override async Task<ResidentProvider?> GetByIdAsync(Guid id)
+    public async Task<IEnumerable<ResidentProvider>> GetByCommunityIdAsync(int communityId)
     {
         return await _dbSet
-            .Include(p => p.ProviderServiceType)
-            .FirstOrDefaultAsync(p => p.Id == id);
-    }
-
-    public override async Task<IEnumerable<ResidentProvider>> GetAllAsync()
-    {
-        return await _dbSet
-            .Include(p => p.ProviderServiceType)
+            .Include(rp => rp.Community)
+            .Where(rp => rp.CommunityId == communityId)
             .ToListAsync();
     }
 }
-
 

@@ -2,17 +2,15 @@ namespace GreatSoft.Be.Application.DTOs.Community;
 
 public class CommunityDto
 {
-    public Guid Id { get; set; }
-    public Guid CommunityTypeId { get; set; }
-    public string CommunityTypeName { get; set; } = string.Empty;
+    public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
-    public string Location { get; set; } = string.Empty;
-    public int Lat { get; set; }
-    public int Lng { get; set; }
-    public int HousingCount { get; set; }
-    public string ContactPhone { get; set; } = string.Empty;
-    public string ContactEmail { get; set; } = string.Empty;
+    public string? Address { get; set; }
+    public string? City { get; set; }
+    public string? State { get; set; }
+    public string? ZipCode { get; set; }
+    public int CompanyId { get; set; }
+    public string CompanyName { get; set; } = string.Empty;
+    public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }
 }
-
 

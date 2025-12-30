@@ -11,26 +11,19 @@ public class CommunityRepository : Repository<Community>, ICommunityRepository
     {
     }
 
-    public async Task<Community?> GetByNameAsync(string name)
+    public async Task<IEnumerable<Community>> GetByCompanyIdAsync(int companyId)
     {
         return await _dbSet
-            .Include(c => c.CommunityType)
-            .FirstOrDefaultAsync(c => c.Name == name);
-    }
-
-    public override async Task<Community?> GetByIdAsync(Guid id)
-    {
-        return await _dbSet
-            .Include(c => c.CommunityType)
-            .FirstOrDefaultAsync(c => c.Id == id);
-    }
-
-    public override async Task<IEnumerable<Community>> GetAllAsync()
-    {
-        return await _dbSet
-            .Include(c => c.CommunityType)
+            .Include(c => c.Company)
+            .Where(c => c.CompanyId == companyId)
             .ToListAsync();
     }
-}
 
+    public async Task<Community?> GetByIdWithDetailsAsync(int id)
+    {
+        return await _dbSet
+            .Include(c => c.Company)
+            .FirstOrDefaultAsync(c => c.Id == id);
+    }
+}
 

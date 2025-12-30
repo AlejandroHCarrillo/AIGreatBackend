@@ -4,7 +4,6 @@ namespace GreatSoft.Be.Application.Interfaces;
 
 public interface IResidentProviderRepository : IRepository<ResidentProvider>
 {
-    Task<ResidentProvider?> GetByEmailAsync(string email);
+    Task<IEnumerable<ResidentProvider>> GetByCommunityIdAsync(int communityId);
 }
-
 

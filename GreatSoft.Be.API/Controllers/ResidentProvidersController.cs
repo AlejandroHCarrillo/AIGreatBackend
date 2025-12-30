@@ -1,5 +1,6 @@
 using GreatSoft.Be.Application.DTOs.ResidentProvider;
-using GreatSoft.Be.Application.Services;
+using GreatSoft.Be.Application.Interfaces;
+using GreatSoft.Be.Domain.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,24 +11,24 @@ namespace GreatSoft.Be.API.Controllers;
 [Authorize]
 public class ResidentProvidersController : ControllerBase
 {
-    private readonly IResidentProviderService _providerService;
+    private readonly IResidentProviderService _residentProviderService;
 
-    public ResidentProvidersController(IResidentProviderService providerService)
+    public ResidentProvidersController(IResidentProviderService residentProviderService)
     {
-        _providerService = providerService;
+        _residentProviderService = residentProviderService;
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<ResidentProviderDto>>> GetAllProviders()
+    public async Task<ActionResult<IEnumerable<ResidentProviderDto>>> GetAll()
     {
-        var providers = await _providerService.GetAllProvidersAsync();
+        var providers = await _residentProviderService.GetAllAsync();
         return Ok(providers);
     }
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<ResidentProviderDto>> GetProviderById(Guid id)
+    public async Task<ActionResult<ResidentProviderDto>> GetById(int id)
     {
-        var provider = await _providerService.GetProviderByIdAsync(id);
+        var provider = await _residentProviderService.GetByIdAsync(id);
         if (provider == null)
         {
             return NotFound();
@@ -35,20 +36,19 @@ public class ResidentProvidersController : ControllerBase
         return Ok(provider);
     }
 
-    [HttpGet("service-type/{serviceTypeId}")]
-    public async Task<ActionResult<IEnumerable<ResidentProviderDto>>> GetProvidersByServiceType(Guid serviceTypeId)
-    {
-        var providers = await _providerService.GetProvidersByServiceTypeAsync(serviceTypeId);
-        return Ok(providers);
-    }
-
     [HttpPost]
-    public async Task<ActionResult<ResidentProviderDto>> CreateProvider(CreateResidentProviderRequest request)
+    [Authorize(Roles = RoleConstants.Admin)]
+    public async Task<ActionResult<ResidentProviderDto>> Create([FromBody] CreateResidentProviderDto createResidentProviderDto)
     {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
         try
         {
-            var provider = await _providerService.CreateProviderAsync(request);
-            return CreatedAtAction(nameof(GetProviderById), new { id = provider.Id }, provider);
+            var provider = await _residentProviderService.CreateAsync(createResidentProviderDto);
+            return CreatedAtAction(nameof(GetById), new { id = provider.Id }, provider);
         }
         catch (InvalidOperationException ex)
         {
@@ -57,29 +57,32 @@ public class ResidentProvidersController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    public async Task<ActionResult<ResidentProviderDto>> UpdateProvider(Guid id, UpdateResidentProviderRequest request)
+    [Authorize(Roles = RoleConstants.Admin)]
+    public async Task<ActionResult<ResidentProviderDto>> Update(int id, [FromBody] UpdateResidentProviderDto updateResidentProviderDto)
     {
-        try
+        if (!ModelState.IsValid)
         {
-            var provider = await _providerService.UpdateProviderAsync(id, request);
-            return Ok(provider);
+            return BadRequest(ModelState);
         }
-        catch (InvalidOperationException ex)
+
+        var provider = await _residentProviderService.UpdateAsync(id, updateResidentProviderDto);
+        if (provider == null)
         {
-            return BadRequest(new { message = ex.Message });
+            return NotFound();
         }
+        return Ok(provider);
     }
 
     [HttpDelete("{id}")]
-    public async Task<IActionResult> DeleteProvider(Guid id)
+    [Authorize(Roles = RoleConstants.Admin)]
+    public async Task<IActionResult> Delete(int id)
     {
-        var deleted = await _providerService.DeleteProviderAsync(id);
-        if (!deleted)
+        var result = await _residentProviderService.DeleteAsync(id);
+        if (!result)
         {
             return NotFound();
         }
         return NoContent();
     }
 }
-
 

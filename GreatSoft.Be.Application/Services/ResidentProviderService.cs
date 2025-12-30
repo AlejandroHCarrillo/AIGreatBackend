@@ -6,166 +6,94 @@ namespace GreatSoft.Be.Application.Services;
 
 public class ResidentProviderService : IResidentProviderService
 {
-    private readonly IResidentProviderRepository _providerRepository;
-    private readonly IRepository<ProviderServiceType> _serviceTypeRepository;
+    private readonly IResidentProviderRepository _residentProviderRepository;
+    private readonly ICommunityRepository _communityRepository;
 
     public ResidentProviderService(
-        IResidentProviderRepository providerRepository,
-        IRepository<ProviderServiceType> serviceTypeRepository)
+        IResidentProviderRepository residentProviderRepository,
+        ICommunityRepository communityRepository)
     {
-        _providerRepository = providerRepository;
-        _serviceTypeRepository = serviceTypeRepository;
+        _residentProviderRepository = residentProviderRepository;
+        _communityRepository = communityRepository;
     }
 
-    public async Task<IEnumerable<ResidentProviderDto>> GetAllProvidersAsync()
+    public async Task<IEnumerable<ResidentProviderDto>> GetAllAsync()
     {
-        var providers = await _providerRepository.GetAllAsync();
-        return providers.Select(p => new ResidentProviderDto
-        {
-            Id = p.Id,
-            Name = p.Name,
-            Description = p.Description,
-            ProviderServiceTypeId = p.ProviderServiceTypeId,
-            ProviderServiceTypeName = p.ProviderServiceType?.Name ?? string.Empty,
-            Phone = p.Phone,
-            Email = p.Email,
-            Image = p.Image,
-            CreatedAt = p.CreatedAt
-        });
+        var providers = await _residentProviderRepository.GetAllAsync();
+        return providers.Select(MapToDto);
     }
 
-    public async Task<ResidentProviderDto?> GetProviderByIdAsync(Guid id)
+    public async Task<ResidentProviderDto?> GetByIdAsync(int id)
     {
-        var provider = await _providerRepository.GetByIdAsync(id);
+        var provider = await _residentProviderRepository.GetByIdAsync(id);
         if (provider == null) return null;
-
-        return new ResidentProviderDto
-        {
-            Id = provider.Id,
-            Name = provider.Name,
-            Description = provider.Description,
-            ProviderServiceTypeId = provider.ProviderServiceTypeId,
-            ProviderServiceTypeName = provider.ProviderServiceType?.Name ?? string.Empty,
-            Phone = provider.Phone,
-            Email = provider.Email,
-            Image = provider.Image,
-            CreatedAt = provider.CreatedAt
-        };
+        return MapToDto(provider);
     }
 
-    public async Task<IEnumerable<ResidentProviderDto>> GetProvidersByServiceTypeAsync(Guid serviceTypeId)
+    public async Task<ResidentProviderDto> CreateAsync(CreateResidentProviderDto createResidentProviderDto)
     {
-        var providers = await _providerRepository.GetAllAsync();
-        return providers
-            .Where(p => p.ProviderServiceTypeId == serviceTypeId)
-            .Select(p => new ResidentProviderDto
-            {
-                Id = p.Id,
-                Name = p.Name,
-                Description = p.Description,
-                ProviderServiceTypeId = p.ProviderServiceTypeId,
-                ProviderServiceTypeName = p.ProviderServiceType?.Name ?? string.Empty,
-                Phone = p.Phone,
-                Email = p.Email,
-                Image = p.Image,
-                CreatedAt = p.CreatedAt
-            });
-    }
-
-    public async Task<ResidentProviderDto> CreateProviderAsync(CreateResidentProviderRequest request)
-    {
-        if (await _providerRepository.GetByEmailAsync(request.Email) != null)
+        // Verify community exists
+        var community = await _communityRepository.GetByIdAsync(createResidentProviderDto.CommunityId);
+        if (community == null)
         {
-            throw new InvalidOperationException("Provider email already exists");
-        }
-
-        var serviceType = await _serviceTypeRepository.GetByIdAsync(request.ProviderServiceTypeId);
-        if (serviceType == null)
-        {
-            throw new InvalidOperationException("ProviderServiceType not found");
+            throw new InvalidOperationException("Community not found");
         }
 
         var provider = new ResidentProvider
         {
-            Id = Guid.NewGuid(),
-            Name = request.Name,
-            Description = request.Description,
-            ProviderServiceTypeId = request.ProviderServiceTypeId,
-            Phone = request.Phone,
-            Email = request.Email,
-            Image = request.Image,
+            Name = createResidentProviderDto.Name,
+            ServiceType = createResidentProviderDto.ServiceType,
+            Phone = createResidentProviderDto.Phone,
+            Email = createResidentProviderDto.Email,
+            CommunityId = createResidentProviderDto.CommunityId,
+            IsActive = true,
             CreatedAt = DateTime.UtcNow
         };
 
-        await _providerRepository.AddAsync(provider);
-
-        return new ResidentProviderDto
-        {
-            Id = provider.Id,
-            Name = provider.Name,
-            Description = provider.Description,
-            ProviderServiceTypeId = provider.ProviderServiceTypeId,
-            ProviderServiceTypeName = serviceType.Name,
-            Phone = provider.Phone,
-            Email = provider.Email,
-            Image = provider.Image,
-            CreatedAt = provider.CreatedAt
-        };
+        await _residentProviderRepository.AddAsync(provider);
+        var createdProvider = await _residentProviderRepository.GetByIdAsync(provider.Id);
+        return MapToDto(createdProvider!);
     }
 
-    public async Task<ResidentProviderDto> UpdateProviderAsync(Guid id, UpdateResidentProviderRequest request)
+    public async Task<ResidentProviderDto?> UpdateAsync(int id, UpdateResidentProviderDto updateResidentProviderDto)
     {
-        var provider = await _providerRepository.GetByIdAsync(id);
-        if (provider == null)
-        {
-            throw new InvalidOperationException("Provider not found");
-        }
+        var provider = await _residentProviderRepository.GetByIdAsync(id);
+        if (provider == null) return null;
 
-        if (provider.Email != request.Email && await _providerRepository.GetByEmailAsync(request.Email) != null)
-        {
-            throw new InvalidOperationException("Provider email already exists");
-        }
+        provider.Name = updateResidentProviderDto.Name;
+        provider.ServiceType = updateResidentProviderDto.ServiceType;
+        provider.Phone = updateResidentProviderDto.Phone;
+        provider.Email = updateResidentProviderDto.Email;
+        provider.IsActive = updateResidentProviderDto.IsActive;
+        provider.UpdatedAt = DateTime.UtcNow;
 
-        var serviceType = await _serviceTypeRepository.GetByIdAsync(request.ProviderServiceTypeId);
-        if (serviceType == null)
-        {
-            throw new InvalidOperationException("ProviderServiceType not found");
-        }
-
-        provider.Name = request.Name;
-        provider.Description = request.Description;
-        provider.ProviderServiceTypeId = request.ProviderServiceTypeId;
-        provider.Phone = request.Phone;
-        provider.Email = request.Email;
-        provider.Image = request.Image;
-
-        await _providerRepository.UpdateAsync(provider);
-
-        return new ResidentProviderDto
-        {
-            Id = provider.Id,
-            Name = provider.Name,
-            Description = provider.Description,
-            ProviderServiceTypeId = provider.ProviderServiceTypeId,
-            ProviderServiceTypeName = serviceType.Name,
-            Phone = provider.Phone,
-            Email = provider.Email,
-            Image = provider.Image,
-            CreatedAt = provider.CreatedAt
-        };
+        await _residentProviderRepository.UpdateAsync(provider);
+        var updatedProvider = await _residentProviderRepository.GetByIdAsync(provider.Id);
+        return MapToDto(updatedProvider!);
     }
 
-    public async Task<bool> DeleteProviderAsync(Guid id)
+    public async Task<bool> DeleteAsync(int id)
     {
-        var provider = await _providerRepository.GetByIdAsync(id);
-        if (provider == null)
-        {
-            return false;
-        }
+        var provider = await _residentProviderRepository.GetByIdAsync(id);
+        if (provider == null) return false;
 
-        await _providerRepository.DeleteAsync(provider);
+        await _residentProviderRepository.DeleteAsync(provider);
         return true;
     }
-}
 
+    private static ResidentProviderDto MapToDto(ResidentProvider provider)
+    {
+        return new ResidentProviderDto
+        {
+            Id = provider.Id,
+            Name = provider.Name,
+            ServiceType = provider.ServiceType,
+            Phone = provider.Phone,
+            Email = provider.Email,
+            CommunityId = provider.CommunityId,
+            CommunityName = provider.Community?.Name ?? string.Empty,
+            IsActive = provider.IsActive
+        };
+    }
+}
 

@@ -2,7 +2,6 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using GreatSoft.Be.Application.Interfaces;
-using GreatSoft.Be.Domain.Entities;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 
@@ -17,24 +16,30 @@ public class JwtService : IJwtService
         _configuration = configuration;
     }
 
-    public string GenerateToken(User user)
+    public string GenerateToken(int userId, string email, string role)
     {
         var jwtSettings = _configuration.GetSection("JwtSettings");
         var secretKey = jwtSettings["SecretKey"] ?? "YourSuperSecretKeyThatShouldBeAtLeast32CharactersLong!";
-        var issuer = jwtSettings["Issuer"] ?? "GreatSoft.Be";
-        var audience = jwtSettings["Audience"] ?? "GreatSoft.Be";
-        var expirationMinutes = int.Parse(jwtSettings["ExpirationMinutes"] ?? "1440");
+        var issuer = jwtSettings["Issuer"] ?? "GreatSoft";
+        var audience = jwtSettings["Audience"] ?? "GreatSoftUsers";
+        var expirationMinutes = int.Parse(jwtSettings["ExpirationMinutes"] ?? "60");
 
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
+        // Ensure secret key is at least 32 characters for HMAC SHA256
+        if (string.IsNullOrEmpty(secretKey) || secretKey.Length < 32)
+        {
+            throw new InvalidOperationException("JWT SecretKey must be at least 32 characters long.");
+        }
+
+        var keyBytes = Encoding.UTF8.GetBytes(secretKey);
+        var key = new SymmetricSecurityKey(keyBytes);
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
         var claims = new[]
         {
-            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new Claim(ClaimTypes.Name, user.Username),
-            new Claim(ClaimTypes.Email, user.Email),
-            new Claim(ClaimTypes.Role, user.Role.Name),
-            new Claim("RoleType", user.Role.RoleType)
+            new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
+            new Claim(ClaimTypes.Email, email),
+            new Claim(ClaimTypes.Role, role),
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
 
         var token = new JwtSecurityToken(
@@ -47,6 +52,46 @@ public class JwtService : IJwtService
 
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
-}
 
+    public ClaimsPrincipal? ValidateToken(string token)
+    {
+        try
+        {
+            var jwtSettings = _configuration.GetSection("JwtSettings");
+            var secretKey = jwtSettings["SecretKey"] ?? "YourSuperSecretKeyThatShouldBeAtLeast32CharactersLong!";
+            var issuer = jwtSettings["Issuer"] ?? "GreatSoft";
+            var audience = jwtSettings["Audience"] ?? "GreatSoftUsers";
+
+            // Ensure secret key is at least 32 characters for HMAC SHA256
+            if (string.IsNullOrEmpty(secretKey) || secretKey.Length < 32)
+            {
+                return null;
+            }
+
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var keyBytes = Encoding.UTF8.GetBytes(secretKey);
+            var signingKey = new SymmetricSecurityKey(keyBytes);
+
+            var validationParameters = new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = signingKey,
+                ValidateIssuer = true,
+                ValidIssuer = issuer,
+                ValidateAudience = true,
+                ValidAudience = audience,
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.Zero,
+                RequireExpirationTime = true
+            };
+
+            var principal = tokenHandler.ValidateToken(token, validationParameters, out SecurityToken validatedToken);
+            return principal;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+}
 

@@ -1,18 +1,16 @@
+using GreatSoft.Be.Domain.Common;
+
 namespace GreatSoft.Be.Domain.Entities;
 
-public class ResidentProvider
+public class ResidentProvider : BaseEntity
 {
-    public Guid Id { get; set; }
-    public string Name { get; set; } = string.Empty; // Nombre
-    public string Description { get; set; } = string.Empty; // Descripción
-    public Guid ProviderServiceTypeId { get; set; } // Tipo de Servicio
-    public string Phone { get; set; } = string.Empty; // Teléfono
-    public string Email { get; set; } = string.Empty; // Email
-    public string? Image { get; set; } // Imagen (ruta de la imagen)
-    public DateTime CreatedAt { get; set; }
-    
-    // Navigation property
-    public ProviderServiceType ProviderServiceType { get; set; } = null!;
-}
+    public string Name { get; set; } = string.Empty;
+    public string ServiceType { get; set; } = string.Empty; // Delivery, Maintenance, etc.
+    public string? Phone { get; set; }
+    public string? Email { get; set; }
+    public int CommunityId { get; set; }
 
+    // Navigation properties
+    public virtual Community Community { get; set; } = null!;
+}
 

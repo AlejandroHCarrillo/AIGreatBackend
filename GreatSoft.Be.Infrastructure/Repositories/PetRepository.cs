@@ -11,19 +11,29 @@ public class PetRepository : Repository<Pet>, IPetRepository
     {
     }
 
-    public override async Task<Pet?> GetByIdAsync(Guid id)
+    public override async Task<Pet?> GetByIdAsync(int id)
     {
         return await _dbSet
-            .Include(p => p.Resident)
+            .Include(p => p.Community)
+            .Include(p => p.Owner)
             .FirstOrDefaultAsync(p => p.Id == id);
     }
 
-    public override async Task<IEnumerable<Pet>> GetAllAsync()
+    public async Task<IEnumerable<Pet>> GetByCommunityIdAsync(int communityId)
     {
         return await _dbSet
-            .Include(p => p.Resident)
+            .Include(p => p.Community)
+            .Include(p => p.Owner)
+            .Where(p => p.CommunityId == communityId)
+            .ToListAsync();
+    }
+
+    public async Task<IEnumerable<Pet>> GetByOwnerIdAsync(int ownerId)
+    {
+        return await _dbSet
+            .Include(p => p.Community)
+            .Where(p => p.OwnerId == ownerId)
             .ToListAsync();
     }
 }
-
 

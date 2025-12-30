@@ -1,8 +1,7 @@
 using GreatSoft.Be.Application.DTOs.Auth;
-using GreatSoft.Be.Application.DTOs.User;
 using GreatSoft.Be.Application.Interfaces;
 using GreatSoft.Be.Domain.Entities;
-using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Configuration;
 
 namespace GreatSoft.Be.Application.Services;
 
@@ -12,123 +11,98 @@ public class AuthService : IAuthService
     private readonly IRoleRepository _roleRepository;
     private readonly IPasswordService _passwordService;
     private readonly IJwtService _jwtService;
-    private readonly ILogger<AuthService> _logger;
+    private readonly IConfiguration _configuration;
 
     public AuthService(
         IUserRepository userRepository,
         IRoleRepository roleRepository,
         IPasswordService passwordService,
         IJwtService jwtService,
-        ILogger<AuthService> logger)
+        IConfiguration configuration)
     {
         _userRepository = userRepository;
         _roleRepository = roleRepository;
         _passwordService = passwordService;
         _jwtService = jwtService;
-        _logger = logger;
+        _configuration = configuration;
     }
 
-    public async Task<LoginResponse> LoginAsync(LoginRequest request)
+    public async Task<LoginResponse?> LoginAsync(LoginRequest request)
     {
-        var user = await _userRepository.GetByUsernameOrEmailAsync(request.Username);
-        
-        if (user == null || !_passwordService.VerifyPassword(request.Password, user.PasswordHash))
+        var user = await _userRepository.GetByEmailAsync(request.Email);
+        if (user == null || !user.IsActive)
         {
-            throw new UnauthorizedAccessException("Invalid username or password");
+            return null;
         }
 
-        if (!user.IsActive)
+        if (!_passwordService.VerifyPassword(request.Password, user.PasswordHash))
         {
-            throw new UnauthorizedAccessException("User account is inactive");
+            return null;
         }
 
-        var token = _jwtService.GenerateToken(user);
-        var expiresAt = DateTime.UtcNow.AddHours(24);
+        var token = _jwtService.GenerateToken(user.Id, user.Email, user.Role.Name);
+        var expirationMinutes = int.Parse(_configuration["JwtSettings:ExpirationMinutes"] ?? "60");
 
         return new LoginResponse
         {
             Token = token,
-            Username = user.Username,
             Email = user.Email,
             Role = user.Role.Name,
-            ExpiresAt = expiresAt
+            UserId = user.Id,
+            ExpiresAt = DateTime.UtcNow.AddMinutes(expirationMinutes)
         };
     }
 
-    public async Task<UserDto> RegisterAsync(RegisterRequest request)
+    public async Task<LoginResponse?> RegisterAsync(RegisterRequest request)
     {
-        if (await _userRepository.GetByUsernameAsync(request.Username) != null)
+        // Check if user already exists
+        var existingUser = await _userRepository.GetByEmailAsync(request.Email);
+        if (existingUser != null)
         {
-            throw new InvalidOperationException("Username already exists");
+            return null;
         }
 
-        if (await _userRepository.GetByEmailAsync(request.Email) != null)
-        {
-            throw new InvalidOperationException("Email already exists");
-        }
-
+        // Verify role exists
         var role = await _roleRepository.GetByIdAsync(request.RoleId);
-        if (role == null)
+        if (role == null || !role.IsActive)
         {
-            throw new InvalidOperationException("Role not found");
+            return null;
         }
 
+        // Create new user
         var user = new User
         {
-            Id = Guid.NewGuid(),
-            FirstName = request.FirstName,
-            LastName = request.LastName,
-            Username = request.Username,
             Email = request.Email,
             PasswordHash = _passwordService.HashPassword(request.Password),
+            FirstName = request.FirstName,
+            LastName = request.LastName,
+            Phone = request.Phone,
+            RoleId = request.RoleId,
+            CompanyId = request.CompanyId,
             IsActive = true,
-            CreatedAt = DateTime.UtcNow,
-            RoleId = request.RoleId
+            CreatedAt = DateTime.UtcNow
         };
 
         await _userRepository.AddAsync(user);
 
-        return new UserDto
+        // Get user with role for response
+        var createdUser = await _userRepository.GetByIdWithRoleAsync(user.Id);
+        if (createdUser == null)
         {
-            Id = user.Id,
-            FirstName = user.FirstName,
-            LastName = user.LastName,
-            Username = user.Username,
-            Email = user.Email,
-            IsActive = user.IsActive,
-            CreatedAt = user.CreatedAt,
-            RoleId = user.RoleId,
-            RoleName = role.Name
+            return null;
+        }
+
+        var token = _jwtService.GenerateToken(createdUser.Id, createdUser.Email, createdUser.Role.Name);
+        var expirationMinutes = int.Parse(_configuration["JwtSettings:ExpirationMinutes"] ?? "60");
+
+        return new LoginResponse
+        {
+            Token = token,
+            Email = createdUser.Email,
+            Role = createdUser.Role.Name,
+            UserId = createdUser.Id,
+            ExpiresAt = DateTime.UtcNow.AddMinutes(expirationMinutes)
         };
     }
-
-    public async Task<bool> ForgotPasswordAsync(ForgotPasswordRequest request)
-    {
-        var user = await _userRepository.GetByEmailAsync(request.Email);
-        
-        if (user == null)
-        {
-            return true;
-        }
-
-        _logger.LogInformation($"Password reset requested for user: {user.Username}");
-        return true;
-    }
-
-    public async Task<bool> ResetPasswordAsync(ResetPasswordRequest request)
-    {
-        var user = await _userRepository.GetByEmailAsync(request.Email);
-        
-        if (user == null)
-        {
-            throw new InvalidOperationException("User not found");
-        }
-
-        user.PasswordHash = _passwordService.HashPassword(request.NewPassword);
-        await _userRepository.UpdateAsync(user);
-
-        return true;
-    }
 }
-
 

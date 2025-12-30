@@ -11,29 +11,37 @@ public class VehicleRepository : Repository<Vehicle>, IVehicleRepository
     {
     }
 
-    public async Task<Vehicle?> GetByLicensePlateAsync(string licensePlate)
+    public override async Task<Vehicle?> GetByIdAsync(int id)
     {
         return await _dbSet
-            .Include(v => v.Resident)
-            .Include(v => v.VehicleType)
-            .FirstOrDefaultAsync(v => v.LicensePlate == licensePlate);
-    }
-
-    public override async Task<Vehicle?> GetByIdAsync(Guid id)
-    {
-        return await _dbSet
-            .Include(v => v.Resident)
-            .Include(v => v.VehicleType)
+            .Include(v => v.Community)
+            .Include(v => v.Owner)
             .FirstOrDefaultAsync(v => v.Id == id);
     }
 
-    public override async Task<IEnumerable<Vehicle>> GetAllAsync()
+    public async Task<Vehicle?> GetByLicensePlateAsync(string licensePlate)
     {
         return await _dbSet
-            .Include(v => v.Resident)
-            .Include(v => v.VehicleType)
+            .Include(v => v.Community)
+            .Include(v => v.Owner)
+            .FirstOrDefaultAsync(v => v.LicensePlate == licensePlate);
+    }
+
+    public async Task<IEnumerable<Vehicle>> GetByCommunityIdAsync(int communityId)
+    {
+        return await _dbSet
+            .Include(v => v.Community)
+            .Include(v => v.Owner)
+            .Where(v => v.CommunityId == communityId)
+            .ToListAsync();
+    }
+
+    public async Task<IEnumerable<Vehicle>> GetByOwnerIdAsync(int ownerId)
+    {
+        return await _dbSet
+            .Include(v => v.Community)
+            .Where(v => v.OwnerId == ownerId)
             .ToListAsync();
     }
 }
-
 

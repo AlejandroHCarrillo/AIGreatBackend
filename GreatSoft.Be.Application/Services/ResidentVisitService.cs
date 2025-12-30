@@ -6,81 +6,44 @@ namespace GreatSoft.Be.Application.Services;
 
 public class ResidentVisitService : IResidentVisitService
 {
-    private readonly IResidentVisitRepository _visitRepository;
-    private readonly IRepository<Resident> _residentRepository;
+    private readonly IResidentVisitRepository _residentVisitRepository;
+    private readonly ICommunityRepository _communityRepository;
+    private readonly IUserRepository _userRepository;
 
     public ResidentVisitService(
-        IResidentVisitRepository visitRepository,
-        IRepository<Resident> residentRepository)
+        IResidentVisitRepository residentVisitRepository,
+        ICommunityRepository communityRepository,
+        IUserRepository userRepository)
     {
-        _visitRepository = visitRepository;
-        _residentRepository = residentRepository;
+        _residentVisitRepository = residentVisitRepository;
+        _communityRepository = communityRepository;
+        _userRepository = userRepository;
     }
 
-    public async Task<IEnumerable<ResidentVisitDto>> GetAllVisitsAsync()
+    public async Task<IEnumerable<ResidentVisitDto>> GetAllAsync()
     {
-        var visits = await _visitRepository.GetAllAsync();
-        return visits.Select(v => new ResidentVisitDto
-        {
-            Id = v.Id,
-            ResidentId = v.ResidentId,
-            ResidentName = v.Resident?.FullName ?? string.Empty,
-            VisitorName = v.VisitorName,
-            TotalPeople = v.TotalPeople,
-            VehicleColor = v.VehicleColor,
-            LicensePlate = v.LicensePlate,
-            Subject = v.Subject,
-            ArrivalDate = v.ArrivalDate,
-            DepartureDate = v.DepartureDate,
-            CreatedAt = v.CreatedAt
-        });
+        var visits = await _residentVisitRepository.GetAllAsync();
+        return visits.Select(MapToDto);
     }
 
-    public async Task<ResidentVisitDto?> GetVisitByIdAsync(Guid id)
+    public async Task<ResidentVisitDto?> GetByIdAsync(int id)
     {
-        var visit = await _visitRepository.GetByIdAsync(id);
+        var visit = await _residentVisitRepository.GetByIdAsync(id);
         if (visit == null) return null;
+        return MapToDto(visit);
+    }
 
-        return new ResidentVisitDto
+    public async Task<ResidentVisitDto> CreateAsync(CreateResidentVisitDto createResidentVisitDto)
+    {
+        // Verify community exists
+        var community = await _communityRepository.GetByIdAsync(createResidentVisitDto.CommunityId);
+        if (community == null)
         {
-            Id = visit.Id,
-            ResidentId = visit.ResidentId,
-            ResidentName = visit.Resident?.FullName ?? string.Empty,
-            VisitorName = visit.VisitorName,
-            TotalPeople = visit.TotalPeople,
-            VehicleColor = visit.VehicleColor,
-            LicensePlate = visit.LicensePlate,
-            Subject = visit.Subject,
-            ArrivalDate = visit.ArrivalDate,
-            DepartureDate = visit.DepartureDate,
-            CreatedAt = visit.CreatedAt
-        };
-    }
+            throw new InvalidOperationException("Community not found");
+        }
 
-    public async Task<IEnumerable<ResidentVisitDto>> GetVisitsByResidentIdAsync(Guid residentId)
-    {
-        var visits = await _visitRepository.GetAllAsync();
-        return visits
-            .Where(v => v.ResidentId == residentId)
-            .Select(v => new ResidentVisitDto
-            {
-                Id = v.Id,
-                ResidentId = v.ResidentId,
-                ResidentName = v.Resident?.FullName ?? string.Empty,
-                VisitorName = v.VisitorName,
-                TotalPeople = v.TotalPeople,
-                VehicleColor = v.VehicleColor,
-                LicensePlate = v.LicensePlate,
-                Subject = v.Subject,
-                ArrivalDate = v.ArrivalDate,
-                DepartureDate = v.DepartureDate,
-                CreatedAt = v.CreatedAt
-            });
-    }
-
-    public async Task<ResidentVisitDto> CreateVisitAsync(CreateResidentVisitRequest request)
-    {
-        var resident = await _residentRepository.GetByIdAsync(request.ResidentId);
+        // Verify resident exists
+        var resident = await _userRepository.GetByIdAsync(createResidentVisitDto.ResidentId);
         if (resident == null)
         {
             throw new InvalidOperationException("Resident not found");
@@ -88,88 +51,68 @@ public class ResidentVisitService : IResidentVisitService
 
         var visit = new ResidentVisit
         {
-            Id = Guid.NewGuid(),
-            ResidentId = request.ResidentId,
-            VisitorName = request.VisitorName,
-            TotalPeople = request.TotalPeople,
-            VehicleColor = request.VehicleColor,
-            LicensePlate = request.LicensePlate,
-            Subject = request.Subject,
-            ArrivalDate = request.ArrivalDate,
-            DepartureDate = request.DepartureDate,
+            VisitorName = createResidentVisitDto.VisitorName,
+            VisitorDocument = createResidentVisitDto.VisitorDocument,
+            VisitDate = createResidentVisitDto.VisitDate,
+            VisitTime = createResidentVisitDto.VisitTime,
+            CommunityId = createResidentVisitDto.CommunityId,
+            ResidentId = createResidentVisitDto.ResidentId,
+            Purpose = createResidentVisitDto.Purpose,
+            Status = "Pending",
+            IsActive = true,
             CreatedAt = DateTime.UtcNow
         };
 
-        await _visitRepository.AddAsync(visit);
-
-        return new ResidentVisitDto
-        {
-            Id = visit.Id,
-            ResidentId = visit.ResidentId,
-            ResidentName = resident.FullName,
-            VisitorName = visit.VisitorName,
-            TotalPeople = visit.TotalPeople,
-            VehicleColor = visit.VehicleColor,
-            LicensePlate = visit.LicensePlate,
-            Subject = visit.Subject,
-            ArrivalDate = visit.ArrivalDate,
-            DepartureDate = visit.DepartureDate,
-            CreatedAt = visit.CreatedAt
-        };
+        await _residentVisitRepository.AddAsync(visit);
+        var createdVisit = await _residentVisitRepository.GetByIdAsync(visit.Id);
+        return MapToDto(createdVisit!);
     }
 
-    public async Task<ResidentVisitDto> UpdateVisitAsync(Guid id, UpdateResidentVisitRequest request)
+    public async Task<ResidentVisitDto?> UpdateAsync(int id, UpdateResidentVisitDto updateResidentVisitDto)
     {
-        var visit = await _visitRepository.GetByIdAsync(id);
-        if (visit == null)
-        {
-            throw new InvalidOperationException("Visit not found");
-        }
+        var visit = await _residentVisitRepository.GetByIdAsync(id);
+        if (visit == null) return null;
 
-        var resident = await _residentRepository.GetByIdAsync(request.ResidentId);
-        if (resident == null)
-        {
-            throw new InvalidOperationException("Resident not found");
-        }
+        visit.VisitorName = updateResidentVisitDto.VisitorName;
+        visit.VisitorDocument = updateResidentVisitDto.VisitorDocument;
+        visit.VisitDate = updateResidentVisitDto.VisitDate;
+        visit.VisitTime = updateResidentVisitDto.VisitTime;
+        visit.Purpose = updateResidentVisitDto.Purpose;
+        visit.Status = updateResidentVisitDto.Status;
+        visit.IsActive = updateResidentVisitDto.IsActive;
+        visit.UpdatedAt = DateTime.UtcNow;
 
-        visit.ResidentId = request.ResidentId;
-        visit.VisitorName = request.VisitorName;
-        visit.TotalPeople = request.TotalPeople;
-        visit.VehicleColor = request.VehicleColor;
-        visit.LicensePlate = request.LicensePlate;
-        visit.Subject = request.Subject;
-        visit.ArrivalDate = request.ArrivalDate;
-        visit.DepartureDate = request.DepartureDate;
-
-        await _visitRepository.UpdateAsync(visit);
-
-        return new ResidentVisitDto
-        {
-            Id = visit.Id,
-            ResidentId = visit.ResidentId,
-            ResidentName = resident.FullName,
-            VisitorName = visit.VisitorName,
-            TotalPeople = visit.TotalPeople,
-            VehicleColor = visit.VehicleColor,
-            LicensePlate = visit.LicensePlate,
-            Subject = visit.Subject,
-            ArrivalDate = visit.ArrivalDate,
-            DepartureDate = visit.DepartureDate,
-            CreatedAt = visit.CreatedAt
-        };
+        await _residentVisitRepository.UpdateAsync(visit);
+        var updatedVisit = await _residentVisitRepository.GetByIdAsync(visit.Id);
+        return MapToDto(updatedVisit!);
     }
 
-    public async Task<bool> DeleteVisitAsync(Guid id)
+    public async Task<bool> DeleteAsync(int id)
     {
-        var visit = await _visitRepository.GetByIdAsync(id);
-        if (visit == null)
-        {
-            return false;
-        }
+        var visit = await _residentVisitRepository.GetByIdAsync(id);
+        if (visit == null) return false;
 
-        await _visitRepository.DeleteAsync(visit);
+        await _residentVisitRepository.DeleteAsync(visit);
         return true;
     }
-}
 
+    private static ResidentVisitDto MapToDto(ResidentVisit visit)
+    {
+        return new ResidentVisitDto
+        {
+            Id = visit.Id,
+            VisitorName = visit.VisitorName,
+            VisitorDocument = visit.VisitorDocument,
+            VisitDate = visit.VisitDate,
+            VisitTime = visit.VisitTime,
+            CommunityId = visit.CommunityId,
+            CommunityName = visit.Community?.Name ?? string.Empty,
+            ResidentId = visit.ResidentId,
+            ResidentName = visit.Resident != null ? $"{visit.Resident.FirstName} {visit.Resident.LastName}" : string.Empty,
+            Purpose = visit.Purpose,
+            Status = visit.Status,
+            IsActive = visit.IsActive
+        };
+    }
+}
 

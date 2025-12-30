@@ -13,126 +13,75 @@ public class CompanyService : ICompanyService
         _companyRepository = companyRepository;
     }
 
-    public async Task<IEnumerable<CompanyDto>> GetAllCompaniesAsync()
+    public async Task<IEnumerable<CompanyDto>> GetAllAsync()
     {
         var companies = await _companyRepository.GetAllAsync();
-        return companies.Select(c => new CompanyDto
-        {
-            Id = c.Id,
-            Name = c.Name,
-            Address = c.Address,
-            ContactName = c.ContactName,
-            Phone = c.Phone,
-            Email = c.Email,
-            CreatedAt = c.CreatedAt
-        });
+        return companies.Select(MapToDto);
     }
 
-    public async Task<CompanyDto?> GetCompanyByIdAsync(Guid id)
+    public async Task<CompanyDto?> GetByIdAsync(int id)
     {
         var company = await _companyRepository.GetByIdAsync(id);
         if (company == null) return null;
-
-        return new CompanyDto
-        {
-            Id = company.Id,
-            Name = company.Name,
-            Address = company.Address,
-            ContactName = company.ContactName,
-            Phone = company.Phone,
-            Email = company.Email,
-            CreatedAt = company.CreatedAt
-        };
+        return MapToDto(company);
     }
 
-    public async Task<CompanyDto> CreateCompanyAsync(CreateCompanyRequest request)
+    public async Task<CompanyDto> CreateAsync(CreateCompanyDto createCompanyDto)
     {
-        if (await _companyRepository.GetByNameAsync(request.Name) != null)
-        {
-            throw new InvalidOperationException("Company name already exists");
-        }
-
-        if (await _companyRepository.GetByEmailAsync(request.Email) != null)
-        {
-            throw new InvalidOperationException("Company email already exists");
-        }
-
         var company = new Company
         {
-            Id = Guid.NewGuid(),
-            Name = request.Name,
-            Address = request.Address,
-            ContactName = request.ContactName,
-            Phone = request.Phone,
-            Email = request.Email,
+            Name = createCompanyDto.Name,
+            Address = createCompanyDto.Address,
+            Phone = createCompanyDto.Phone,
+            Email = createCompanyDto.Email,
+            TaxId = createCompanyDto.TaxId,
+            IsActive = true,
             CreatedAt = DateTime.UtcNow
         };
 
         await _companyRepository.AddAsync(company);
-
-        return new CompanyDto
-        {
-            Id = company.Id,
-            Name = company.Name,
-            Address = company.Address,
-            ContactName = company.ContactName,
-            Phone = company.Phone,
-            Email = company.Email,
-            CreatedAt = company.CreatedAt
-        };
+        return MapToDto(company);
     }
 
-    public async Task<CompanyDto> UpdateCompanyAsync(Guid id, UpdateCompanyRequest request)
+    public async Task<CompanyDto?> UpdateAsync(int id, UpdateCompanyDto updateCompanyDto)
     {
         var company = await _companyRepository.GetByIdAsync(id);
-        if (company == null)
-        {
-            throw new InvalidOperationException("Company not found");
-        }
+        if (company == null) return null;
 
-        var existingCompanyByName = await _companyRepository.GetByNameAsync(request.Name);
-        if (existingCompanyByName != null && existingCompanyByName.Id != id)
-        {
-            throw new InvalidOperationException("Company name already exists");
-        }
-
-        var existingCompanyByEmail = await _companyRepository.GetByEmailAsync(request.Email);
-        if (existingCompanyByEmail != null && existingCompanyByEmail.Id != id)
-        {
-            throw new InvalidOperationException("Company email already exists");
-        }
-
-        company.Name = request.Name;
-        company.Address = request.Address;
-        company.ContactName = request.ContactName;
-        company.Phone = request.Phone;
-        company.Email = request.Email;
+        company.Name = updateCompanyDto.Name;
+        company.Address = updateCompanyDto.Address;
+        company.Phone = updateCompanyDto.Phone;
+        company.Email = updateCompanyDto.Email;
+        company.TaxId = updateCompanyDto.TaxId;
+        company.IsActive = updateCompanyDto.IsActive;
+        company.UpdatedAt = DateTime.UtcNow;
 
         await _companyRepository.UpdateAsync(company);
-
-        return new CompanyDto
-        {
-            Id = company.Id,
-            Name = company.Name,
-            Address = company.Address,
-            ContactName = company.ContactName,
-            Phone = company.Phone,
-            Email = company.Email,
-            CreatedAt = company.CreatedAt
-        };
+        return MapToDto(company);
     }
 
-    public async Task<bool> DeleteCompanyAsync(Guid id)
+    public async Task<bool> DeleteAsync(int id)
     {
         var company = await _companyRepository.GetByIdAsync(id);
-        if (company == null)
-        {
-            return false;
-        }
+        if (company == null) return false;
 
         await _companyRepository.DeleteAsync(company);
         return true;
     }
-}
 
+    private static CompanyDto MapToDto(Company company)
+    {
+        return new CompanyDto
+        {
+            Id = company.Id,
+            Name = company.Name,
+            Address = company.Address,
+            Phone = company.Phone,
+            Email = company.Email,
+            TaxId = company.TaxId,
+            IsActive = company.IsActive,
+            CreatedAt = company.CreatedAt
+        };
+    }
+}
 

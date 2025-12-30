@@ -1,18 +1,19 @@
+using GreatSoft.Be.Domain.Common;
+
 namespace GreatSoft.Be.Domain.Entities;
 
-public class Pet
+public class Pet : BaseEntity
 {
-    public Guid Id { get; set; }
-    public string Name { get; set; } = string.Empty; // Nombre
-    public string Species { get; set; } = string.Empty; // Especie
-    public string Breed { get; set; } = string.Empty; // Raza
-    public int Age { get; set; } // Edad en años
-    public string Color { get; set; } = string.Empty; // Color predominante
-    public Guid ResidentId { get; set; } // ID del residente propietario
-    public DateTime CreatedAt { get; set; }
-    
-    // Navigation property
-    public Resident Resident { get; set; } = null!;
-}
+    public string Name { get; set; } = string.Empty;
+    public string Type { get; set; } = string.Empty; // Dog, Cat, etc.
+    public string? Breed { get; set; }
+    public string? Color { get; set; }
+    public int CommunityId { get; set; }
+    public int OwnerId { get; set; }
+    public DateTime RegistrationDate { get; set; } = DateTime.UtcNow;
 
+    // Navigation properties
+    public virtual Community Community { get; set; } = null!;
+    public virtual User Owner { get; set; } = null!;
+}
 

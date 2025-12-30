@@ -1,5 +1,6 @@
 using GreatSoft.Be.Application.DTOs.ResidentVisit;
-using GreatSoft.Be.Application.Services;
+using GreatSoft.Be.Application.Interfaces;
+using GreatSoft.Be.Domain.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,24 +11,24 @@ namespace GreatSoft.Be.API.Controllers;
 [Authorize]
 public class ResidentVisitsController : ControllerBase
 {
-    private readonly IResidentVisitService _visitService;
+    private readonly IResidentVisitService _residentVisitService;
 
-    public ResidentVisitsController(IResidentVisitService visitService)
+    public ResidentVisitsController(IResidentVisitService residentVisitService)
     {
-        _visitService = visitService;
+        _residentVisitService = residentVisitService;
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<ResidentVisitDto>>> GetAllVisits()
+    public async Task<ActionResult<IEnumerable<ResidentVisitDto>>> GetAll()
     {
-        var visits = await _visitService.GetAllVisitsAsync();
+        var visits = await _residentVisitService.GetAllAsync();
         return Ok(visits);
     }
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<ResidentVisitDto>> GetVisitById(Guid id)
+    public async Task<ActionResult<ResidentVisitDto>> GetById(int id)
     {
-        var visit = await _visitService.GetVisitByIdAsync(id);
+        var visit = await _residentVisitService.GetByIdAsync(id);
         if (visit == null)
         {
             return NotFound();
@@ -35,20 +36,18 @@ public class ResidentVisitsController : ControllerBase
         return Ok(visit);
     }
 
-    [HttpGet("resident/{residentId}")]
-    public async Task<ActionResult<IEnumerable<ResidentVisitDto>>> GetVisitsByResidentId(Guid residentId)
-    {
-        var visits = await _visitService.GetVisitsByResidentIdAsync(residentId);
-        return Ok(visits);
-    }
-
     [HttpPost]
-    public async Task<ActionResult<ResidentVisitDto>> CreateVisit(CreateResidentVisitRequest request)
+    public async Task<ActionResult<ResidentVisitDto>> Create([FromBody] CreateResidentVisitDto createResidentVisitDto)
     {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
         try
         {
-            var visit = await _visitService.CreateVisitAsync(request);
-            return CreatedAtAction(nameof(GetVisitById), new { id = visit.Id }, visit);
+            var visit = await _residentVisitService.CreateAsync(createResidentVisitDto);
+            return CreatedAtAction(nameof(GetById), new { id = visit.Id }, visit);
         }
         catch (InvalidOperationException ex)
         {
@@ -57,29 +56,32 @@ public class ResidentVisitsController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    public async Task<ActionResult<ResidentVisitDto>> UpdateVisit(Guid id, UpdateResidentVisitRequest request)
+    [Authorize(Roles = RoleConstants.Admin)]
+    public async Task<ActionResult<ResidentVisitDto>> Update(int id, [FromBody] UpdateResidentVisitDto updateResidentVisitDto)
     {
-        try
+        if (!ModelState.IsValid)
         {
-            var visit = await _visitService.UpdateVisitAsync(id, request);
-            return Ok(visit);
+            return BadRequest(ModelState);
         }
-        catch (InvalidOperationException ex)
+
+        var visit = await _residentVisitService.UpdateAsync(id, updateResidentVisitDto);
+        if (visit == null)
         {
-            return BadRequest(new { message = ex.Message });
+            return NotFound();
         }
+        return Ok(visit);
     }
 
     [HttpDelete("{id}")]
-    public async Task<IActionResult> DeleteVisit(Guid id)
+    [Authorize(Roles = RoleConstants.Admin)]
+    public async Task<IActionResult> Delete(int id)
     {
-        var deleted = await _visitService.DeleteVisitAsync(id);
-        if (!deleted)
+        var result = await _residentVisitService.DeleteAsync(id);
+        if (!result)
         {
             return NotFound();
         }
         return NoContent();
     }
 }
-
 

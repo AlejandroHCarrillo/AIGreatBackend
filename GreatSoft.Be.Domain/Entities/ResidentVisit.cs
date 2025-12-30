@@ -1,20 +1,20 @@
+using GreatSoft.Be.Domain.Common;
+
 namespace GreatSoft.Be.Domain.Entities;
 
-public class ResidentVisit
+public class ResidentVisit : BaseEntity
 {
-    public Guid Id { get; set; }
-    public Guid ResidentId { get; set; } // ID del propietario
-    public string VisitorName { get; set; } = string.Empty; // Nombre del visitante
-    public int TotalPeople { get; set; } // Total de Personas
-    public string? VehicleColor { get; set; } // Color del auto (opcional)
-    public string? LicensePlate { get; set; } // Placas del auto (opcional)
-    public string Subject { get; set; } = string.Empty; // Asunto
-    public DateTime ArrivalDate { get; set; } // Fecha de llegada
-    public DateTime? DepartureDate { get; set; } // Fecha de salida (opcional, puede estar en curso)
-    public DateTime CreatedAt { get; set; }
-    
-    // Navigation property
-    public Resident Resident { get; set; } = null!;
-}
+    public string VisitorName { get; set; } = string.Empty;
+    public string? VisitorDocument { get; set; }
+    public DateTime VisitDate { get; set; }
+    public TimeSpan VisitTime { get; set; }
+    public int CommunityId { get; set; }
+    public int ResidentId { get; set; }
+    public string? Purpose { get; set; }
+    public string Status { get; set; } = "Pending"; // Pending, Approved, Rejected, Completed
 
+    // Navigation properties
+    public virtual Community Community { get; set; } = null!;
+    public virtual User Resident { get; set; } = null!;
+}
 

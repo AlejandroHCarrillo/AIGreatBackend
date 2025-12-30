@@ -13,103 +13,71 @@ public class RoleService : IRoleService
         _roleRepository = roleRepository;
     }
 
-    public async Task<IEnumerable<RoleDto>> GetAllRolesAsync()
+    public async Task<IEnumerable<RoleDto>> GetAllAsync()
     {
         var roles = await _roleRepository.GetAllAsync();
-        return roles.Select(r => new RoleDto
-        {
-            Id = r.Id,
-            Name = r.Name,
-            Description = r.Description,
-            RoleType = r.RoleType,
-            CreatedAt = r.CreatedAt
-        });
+        return roles.Select(MapToDto);
     }
 
-    public async Task<RoleDto?> GetRoleByIdAsync(Guid id)
+    public async Task<RoleDto?> GetByIdAsync(int id)
     {
         var role = await _roleRepository.GetByIdAsync(id);
         if (role == null) return null;
-
-        return new RoleDto
-        {
-            Id = role.Id,
-            Name = role.Name,
-            Description = role.Description,
-            RoleType = role.RoleType,
-            CreatedAt = role.CreatedAt
-        };
+        return MapToDto(role);
     }
 
-    public async Task<RoleDto> CreateRoleAsync(CreateRoleRequest request)
+    public async Task<RoleDto> CreateAsync(CreateRoleDto createRoleDto)
     {
-        if (await _roleRepository.GetByNameAsync(request.Name) != null)
+        // Check if role name already exists
+        var existingRole = await _roleRepository.GetByNameAsync(createRoleDto.Name);
+        if (existingRole != null)
         {
             throw new InvalidOperationException("Role name already exists");
         }
 
         var role = new Role
         {
-            Id = Guid.NewGuid(),
-            Name = request.Name,
-            Description = request.Description,
-            RoleType = request.RoleType,
+            Name = createRoleDto.Name,
+            Description = createRoleDto.Description,
+            IsActive = true,
             CreatedAt = DateTime.UtcNow
         };
 
         await _roleRepository.AddAsync(role);
-
-        return new RoleDto
-        {
-            Id = role.Id,
-            Name = role.Name,
-            Description = role.Description,
-            RoleType = role.RoleType,
-            CreatedAt = role.CreatedAt
-        };
+        return MapToDto(role);
     }
 
-    public async Task<RoleDto> UpdateRoleAsync(Guid id, UpdateRoleRequest request)
+    public async Task<RoleDto?> UpdateAsync(int id, UpdateRoleDto updateRoleDto)
     {
         var role = await _roleRepository.GetByIdAsync(id);
-        if (role == null)
-        {
-            throw new InvalidOperationException("Role not found");
-        }
+        if (role == null) return null;
 
-        var existingRole = await _roleRepository.GetByNameAsync(request.Name);
-        if (existingRole != null && existingRole.Id != id)
-        {
-            throw new InvalidOperationException("Role name already exists");
-        }
-
-        role.Name = request.Name;
-        role.Description = request.Description;
-        role.RoleType = request.RoleType;
+        role.Description = updateRoleDto.Description;
+        role.IsActive = updateRoleDto.IsActive;
+        role.UpdatedAt = DateTime.UtcNow;
 
         await _roleRepository.UpdateAsync(role);
-
-        return new RoleDto
-        {
-            Id = role.Id,
-            Name = role.Name,
-            Description = role.Description,
-            RoleType = role.RoleType,
-            CreatedAt = role.CreatedAt
-        };
+        return MapToDto(role);
     }
 
-    public async Task<bool> DeleteRoleAsync(Guid id)
+    public async Task<bool> DeleteAsync(int id)
     {
         var role = await _roleRepository.GetByIdAsync(id);
-        if (role == null)
-        {
-            return false;
-        }
+        if (role == null) return false;
 
         await _roleRepository.DeleteAsync(role);
         return true;
     }
-}
 
+    private static RoleDto MapToDto(Role role)
+    {
+        return new RoleDto
+        {
+            Id = role.Id,
+            Name = role.Name,
+            Description = role.Description,
+            IsActive = role.IsActive
+        };
+    }
+}
 

@@ -7,159 +7,97 @@ namespace GreatSoft.Be.Application.Services;
 public class CommunityService : ICommunityService
 {
     private readonly ICommunityRepository _communityRepository;
-    private readonly IRepository<CommunityType> _communityTypeRepository;
+    private readonly ICompanyRepository _companyRepository;
 
     public CommunityService(
         ICommunityRepository communityRepository,
-        IRepository<CommunityType> communityTypeRepository)
+        ICompanyRepository companyRepository)
     {
         _communityRepository = communityRepository;
-        _communityTypeRepository = communityTypeRepository;
+        _companyRepository = companyRepository;
     }
 
-    public async Task<IEnumerable<CommunityDto>> GetAllCommunitiesAsync()
+    public async Task<IEnumerable<CommunityDto>> GetAllAsync()
     {
         var communities = await _communityRepository.GetAllAsync();
-        return communities.Select(c => new CommunityDto
-        {
-            Id = c.Id,
-            CommunityTypeId = c.CommunityTypeId,
-            CommunityTypeName = c.CommunityType?.Name ?? string.Empty,
-            Name = c.Name,
-            Location = c.Location,
-            Lat = c.Lat,
-            Lng = c.Lng,
-            HousingCount = c.HousingCount,
-            ContactPhone = c.ContactPhone,
-            ContactEmail = c.ContactEmail,
-            CreatedAt = c.CreatedAt
-        });
+        return communities.Select(MapToDto);
     }
 
-    public async Task<CommunityDto?> GetCommunityByIdAsync(Guid id)
+    public async Task<CommunityDto?> GetByIdAsync(int id)
     {
-        var community = await _communityRepository.GetByIdAsync(id);
+        var community = await _communityRepository.GetByIdWithDetailsAsync(id);
         if (community == null) return null;
-
-        return new CommunityDto
-        {
-            Id = community.Id,
-            CommunityTypeId = community.CommunityTypeId,
-            CommunityTypeName = community.CommunityType?.Name ?? string.Empty,
-            Name = community.Name,
-            Location = community.Location,
-            Lat = community.Lat,
-            Lng = community.Lng,
-            HousingCount = community.HousingCount,
-            ContactPhone = community.ContactPhone,
-            ContactEmail = community.ContactEmail,
-            CreatedAt = community.CreatedAt
-        };
+        return MapToDto(community);
     }
 
-    public async Task<CommunityDto> CreateCommunityAsync(CreateCommunityRequest request)
+    public async Task<CommunityDto> CreateAsync(CreateCommunityDto createCommunityDto)
     {
-        if (await _communityRepository.GetByNameAsync(request.Name) != null)
+        // Verify company exists
+        var company = await _companyRepository.GetByIdAsync(createCommunityDto.CompanyId);
+        if (company == null)
         {
-            throw new InvalidOperationException("Community name already exists");
-        }
-
-        var communityType = await _communityTypeRepository.GetByIdAsync(request.CommunityTypeId);
-        if (communityType == null)
-        {
-            throw new InvalidOperationException("CommunityType not found");
+            throw new InvalidOperationException("Company not found");
         }
 
         var community = new Community
         {
-            Id = Guid.NewGuid(),
-            CommunityTypeId = request.CommunityTypeId,
-            Name = request.Name,
-            Location = request.Location,
-            Lat = request.Lat,
-            Lng = request.Lng,
-            HousingCount = request.HousingCount,
-            ContactPhone = request.ContactPhone,
-            ContactEmail = request.ContactEmail,
+            Name = createCommunityDto.Name,
+            Address = createCommunityDto.Address,
+            City = createCommunityDto.City,
+            State = createCommunityDto.State,
+            ZipCode = createCommunityDto.ZipCode,
+            CompanyId = createCommunityDto.CompanyId,
+            IsActive = true,
             CreatedAt = DateTime.UtcNow
         };
 
         await _communityRepository.AddAsync(community);
-
-        return new CommunityDto
-        {
-            Id = community.Id,
-            CommunityTypeId = community.CommunityTypeId,
-            CommunityTypeName = communityType.Name,
-            Name = community.Name,
-            Location = community.Location,
-            Lat = community.Lat,
-            Lng = community.Lng,
-            HousingCount = community.HousingCount,
-            ContactPhone = community.ContactPhone,
-            ContactEmail = community.ContactEmail,
-            CreatedAt = community.CreatedAt
-        };
+        var createdCommunity = await _communityRepository.GetByIdWithDetailsAsync(community.Id);
+        return MapToDto(createdCommunity!);
     }
 
-    public async Task<CommunityDto> UpdateCommunityAsync(Guid id, UpdateCommunityRequest request)
+    public async Task<CommunityDto?> UpdateAsync(int id, UpdateCommunityDto updateCommunityDto)
     {
         var community = await _communityRepository.GetByIdAsync(id);
-        if (community == null)
-        {
-            throw new InvalidOperationException("Community not found");
-        }
+        if (community == null) return null;
 
-        // Check if name is being changed and if it already exists
-        if (community.Name != request.Name && await _communityRepository.GetByNameAsync(request.Name) != null)
-        {
-            throw new InvalidOperationException("Community name already exists");
-        }
-
-        var communityType = await _communityTypeRepository.GetByIdAsync(request.CommunityTypeId);
-        if (communityType == null)
-        {
-            throw new InvalidOperationException("CommunityType not found");
-        }
-
-        community.CommunityTypeId = request.CommunityTypeId;
-        community.Name = request.Name;
-        community.Location = request.Location;
-        community.Lat = request.Lat;
-        community.Lng = request.Lng;
-        community.HousingCount = request.HousingCount;
-        community.ContactPhone = request.ContactPhone;
-        community.ContactEmail = request.ContactEmail;
+        community.Name = updateCommunityDto.Name;
+        community.Address = updateCommunityDto.Address;
+        community.City = updateCommunityDto.City;
+        community.State = updateCommunityDto.State;
+        community.ZipCode = updateCommunityDto.ZipCode;
+        community.IsActive = updateCommunityDto.IsActive;
+        community.UpdatedAt = DateTime.UtcNow;
 
         await _communityRepository.UpdateAsync(community);
-
-        return new CommunityDto
-        {
-            Id = community.Id,
-            CommunityTypeId = community.CommunityTypeId,
-            CommunityTypeName = communityType.Name,
-            Name = community.Name,
-            Location = community.Location,
-            Lat = community.Lat,
-            Lng = community.Lng,
-            HousingCount = community.HousingCount,
-            ContactPhone = community.ContactPhone,
-            ContactEmail = community.ContactEmail,
-            CreatedAt = community.CreatedAt
-        };
+        var updatedCommunity = await _communityRepository.GetByIdWithDetailsAsync(community.Id);
+        return MapToDto(updatedCommunity!);
     }
 
-    public async Task<bool> DeleteCommunityAsync(Guid id)
+    public async Task<bool> DeleteAsync(int id)
     {
         var community = await _communityRepository.GetByIdAsync(id);
-        if (community == null)
-        {
-            return false;
-        }
+        if (community == null) return false;
 
         await _communityRepository.DeleteAsync(community);
         return true;
     }
-}
 
+    private static CommunityDto MapToDto(Community community)
+    {
+        return new CommunityDto
+        {
+            Id = community.Id,
+            Name = community.Name,
+            Address = community.Address,
+            City = community.City,
+            State = community.State,
+            ZipCode = community.ZipCode,
+            CompanyId = community.CompanyId,
+            CompanyName = community.Company?.Name ?? string.Empty,
+            IsActive = community.IsActive,
+            CreatedAt = community.CreatedAt
+        };
+    }
+}
 

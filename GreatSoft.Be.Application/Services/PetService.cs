@@ -7,155 +7,108 @@ namespace GreatSoft.Be.Application.Services;
 public class PetService : IPetService
 {
     private readonly IPetRepository _petRepository;
-    private readonly IRepository<Resident> _residentRepository;
+    private readonly ICommunityRepository _communityRepository;
+    private readonly IUserRepository _userRepository;
 
     public PetService(
         IPetRepository petRepository,
-        IRepository<Resident> residentRepository)
+        ICommunityRepository communityRepository,
+        IUserRepository userRepository)
     {
         _petRepository = petRepository;
-        _residentRepository = residentRepository;
+        _communityRepository = communityRepository;
+        _userRepository = userRepository;
     }
 
-    public async Task<IEnumerable<PetDto>> GetAllPetsAsync()
+    public async Task<IEnumerable<PetDto>> GetAllAsync()
     {
         var pets = await _petRepository.GetAllAsync();
-        return pets.Select(p => new PetDto
-        {
-            Id = p.Id,
-            ResidentId = p.ResidentId,
-            ResidentName = p.Resident?.FullName ?? string.Empty,
-            Name = p.Name,
-            Species = p.Species,
-            Breed = p.Breed,
-            Age = p.Age,
-            Color = p.Color,
-            CreatedAt = p.CreatedAt
-        });
+        return pets.Select(MapToDto);
     }
 
-    public async Task<PetDto?> GetPetByIdAsync(Guid id)
+    public async Task<PetDto?> GetByIdAsync(int id)
     {
         var pet = await _petRepository.GetByIdAsync(id);
         if (pet == null) return null;
-
-        return new PetDto
-        {
-            Id = pet.Id,
-            ResidentId = pet.ResidentId,
-            ResidentName = pet.Resident?.FullName ?? string.Empty,
-            Name = pet.Name,
-            Species = pet.Species,
-            Breed = pet.Breed,
-            Age = pet.Age,
-            Color = pet.Color,
-            CreatedAt = pet.CreatedAt
-        };
+        return MapToDto(pet);
     }
 
-    public async Task<IEnumerable<PetDto>> GetPetsByResidentIdAsync(Guid residentId)
+    public async Task<PetDto> CreateAsync(CreatePetDto createPetDto)
     {
-        var pets = await _petRepository.GetAllAsync();
-        return pets
-            .Where(p => p.ResidentId == residentId)
-            .Select(p => new PetDto
-            {
-                Id = p.Id,
-                ResidentId = p.ResidentId,
-                ResidentName = p.Resident?.FullName ?? string.Empty,
-                Name = p.Name,
-                Species = p.Species,
-                Breed = p.Breed,
-                Age = p.Age,
-                Color = p.Color,
-                CreatedAt = p.CreatedAt
-            });
-    }
-
-    public async Task<PetDto> CreatePetAsync(CreatePetRequest request)
-    {
-        var resident = await _residentRepository.GetByIdAsync(request.ResidentId);
-        if (resident == null)
+        // Verify community exists
+        var community = await _communityRepository.GetByIdAsync(createPetDto.CommunityId);
+        if (community == null)
         {
-            throw new InvalidOperationException("Resident not found");
+            throw new InvalidOperationException("Community not found");
+        }
+
+        // Verify owner exists
+        var owner = await _userRepository.GetByIdAsync(createPetDto.OwnerId);
+        if (owner == null)
+        {
+            throw new InvalidOperationException("Owner not found");
         }
 
         var pet = new Pet
         {
-            Id = Guid.NewGuid(),
-            ResidentId = request.ResidentId,
-            Name = request.Name,
-            Species = request.Species,
-            Breed = request.Breed,
-            Age = request.Age,
-            Color = request.Color,
+            Name = createPetDto.Name,
+            Type = createPetDto.Type,
+            Breed = createPetDto.Breed,
+            Color = createPetDto.Color,
+            CommunityId = createPetDto.CommunityId,
+            OwnerId = createPetDto.OwnerId,
+            RegistrationDate = DateTime.UtcNow,
+            IsActive = true,
             CreatedAt = DateTime.UtcNow
         };
 
         await _petRepository.AddAsync(pet);
-
-        return new PetDto
-        {
-            Id = pet.Id,
-            ResidentId = pet.ResidentId,
-            ResidentName = resident.FullName,
-            Name = pet.Name,
-            Species = pet.Species,
-            Breed = pet.Breed,
-            Age = pet.Age,
-            Color = pet.Color,
-            CreatedAt = pet.CreatedAt
-        };
+        var createdPet = await _petRepository.GetByIdAsync(pet.Id);
+        return MapToDto(createdPet!);
     }
 
-    public async Task<PetDto> UpdatePetAsync(Guid id, UpdatePetRequest request)
+    public async Task<PetDto?> UpdateAsync(int id, UpdatePetDto updatePetDto)
     {
         var pet = await _petRepository.GetByIdAsync(id);
-        if (pet == null)
-        {
-            throw new InvalidOperationException("Pet not found");
-        }
+        if (pet == null) return null;
 
-        var resident = await _residentRepository.GetByIdAsync(request.ResidentId);
-        if (resident == null)
-        {
-            throw new InvalidOperationException("Resident not found");
-        }
-
-        pet.ResidentId = request.ResidentId;
-        pet.Name = request.Name;
-        pet.Species = request.Species;
-        pet.Breed = request.Breed;
-        pet.Age = request.Age;
-        pet.Color = request.Color;
+        pet.Name = updatePetDto.Name;
+        pet.Type = updatePetDto.Type;
+        pet.Breed = updatePetDto.Breed;
+        pet.Color = updatePetDto.Color;
+        pet.IsActive = updatePetDto.IsActive;
+        pet.UpdatedAt = DateTime.UtcNow;
 
         await _petRepository.UpdateAsync(pet);
-
-        return new PetDto
-        {
-            Id = pet.Id,
-            ResidentId = pet.ResidentId,
-            ResidentName = resident.FullName,
-            Name = pet.Name,
-            Species = pet.Species,
-            Breed = pet.Breed,
-            Age = pet.Age,
-            Color = pet.Color,
-            CreatedAt = pet.CreatedAt
-        };
+        var updatedPet = await _petRepository.GetByIdAsync(pet.Id);
+        return MapToDto(updatedPet!);
     }
 
-    public async Task<bool> DeletePetAsync(Guid id)
+    public async Task<bool> DeleteAsync(int id)
     {
         var pet = await _petRepository.GetByIdAsync(id);
-        if (pet == null)
-        {
-            return false;
-        }
+        if (pet == null) return false;
 
         await _petRepository.DeleteAsync(pet);
         return true;
     }
-}
 
+    private static PetDto MapToDto(Pet pet)
+    {
+        return new PetDto
+        {
+            Id = pet.Id,
+            Name = pet.Name,
+            Type = pet.Type,
+            Breed = pet.Breed,
+            Color = pet.Color,
+            CommunityId = pet.CommunityId,
+            CommunityName = pet.Community?.Name ?? string.Empty,
+            OwnerId = pet.OwnerId,
+            OwnerName = pet.Owner != null ? $"{pet.Owner.FirstName} {pet.Owner.LastName}" : string.Empty,
+            RegistrationDate = pet.RegistrationDate,
+            IsActive = pet.IsActive
+        };
+    }
+}
 

@@ -1,5 +1,6 @@
 using GreatSoft.Be.Application.DTOs.Vehicle;
-using GreatSoft.Be.Application.Services;
+using GreatSoft.Be.Application.Interfaces;
+using GreatSoft.Be.Domain.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -18,16 +19,16 @@ public class VehiclesController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<VehicleDto>>> GetAllVehicles()
+    public async Task<ActionResult<IEnumerable<VehicleDto>>> GetAll()
     {
-        var vehicles = await _vehicleService.GetAllVehiclesAsync();
+        var vehicles = await _vehicleService.GetAllAsync();
         return Ok(vehicles);
     }
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<VehicleDto>> GetVehicleById(Guid id)
+    public async Task<ActionResult<VehicleDto>> GetById(int id)
     {
-        var vehicle = await _vehicleService.GetVehicleByIdAsync(id);
+        var vehicle = await _vehicleService.GetByIdAsync(id);
         if (vehicle == null)
         {
             return NotFound();
@@ -35,20 +36,18 @@ public class VehiclesController : ControllerBase
         return Ok(vehicle);
     }
 
-    [HttpGet("resident/{residentId}")]
-    public async Task<ActionResult<IEnumerable<VehicleDto>>> GetVehiclesByResidentId(Guid residentId)
-    {
-        var vehicles = await _vehicleService.GetVehiclesByResidentIdAsync(residentId);
-        return Ok(vehicles);
-    }
-
     [HttpPost]
-    public async Task<ActionResult<VehicleDto>> CreateVehicle(CreateVehicleRequest request)
+    public async Task<ActionResult<VehicleDto>> Create([FromBody] CreateVehicleDto createVehicleDto)
     {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
         try
         {
-            var vehicle = await _vehicleService.CreateVehicleAsync(request);
-            return CreatedAtAction(nameof(GetVehicleById), new { id = vehicle.Id }, vehicle);
+            var vehicle = await _vehicleService.CreateAsync(createVehicleDto);
+            return CreatedAtAction(nameof(GetById), new { id = vehicle.Id }, vehicle);
         }
         catch (InvalidOperationException ex)
         {
@@ -57,29 +56,31 @@ public class VehiclesController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    public async Task<ActionResult<VehicleDto>> UpdateVehicle(Guid id, UpdateVehicleRequest request)
+    public async Task<ActionResult<VehicleDto>> Update(int id, [FromBody] UpdateVehicleDto updateVehicleDto)
     {
-        try
+        if (!ModelState.IsValid)
         {
-            var vehicle = await _vehicleService.UpdateVehicleAsync(id, request);
-            return Ok(vehicle);
+            return BadRequest(ModelState);
         }
-        catch (InvalidOperationException ex)
+
+        var vehicle = await _vehicleService.UpdateAsync(id, updateVehicleDto);
+        if (vehicle == null)
         {
-            return BadRequest(new { message = ex.Message });
+            return NotFound();
         }
+        return Ok(vehicle);
     }
 
     [HttpDelete("{id}")]
-    public async Task<IActionResult> DeleteVehicle(Guid id)
+    [Authorize(Roles = RoleConstants.Admin)]
+    public async Task<IActionResult> Delete(int id)
     {
-        var deleted = await _vehicleService.DeleteVehicleAsync(id);
-        if (!deleted)
+        var result = await _vehicleService.DeleteAsync(id);
+        if (!result)
         {
             return NotFound();
         }
         return NoContent();
     }
 }
-
 

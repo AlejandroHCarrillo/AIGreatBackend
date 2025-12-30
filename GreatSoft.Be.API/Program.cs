@@ -1,42 +1,41 @@
+using GreatSoft.Be.Application;
+using GreatSoft.Be.Application.Interfaces;
 using GreatSoft.Be.Infrastructure;
 using GreatSoft.Be.Infrastructure.Data;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.OpenApi.Models;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-
-// Configure Swagger with JWT
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo
+    c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
     {
-        Title = "GreatSoft.Be API",
+        Title = "GreatSoft API",
         Version = "v1",
-        Description = "API for GreatSoft Backend with JWT Authentication"
+        Description = "API para gestión de comunidades residenciales"
     });
 
-    // Add JWT Authentication to Swagger
-    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    // Add JWT authentication to Swagger
+    c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
     {
         Description = "JWT Authorization header using the Bearer scheme. Enter 'Bearer' [space] and then your token in the text input below.",
         Name = "Authorization",
-        In = ParameterLocation.Header,
-        Type = SecuritySchemeType.ApiKey,
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
         Scheme = "Bearer"
     });
 
-    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
     {
         {
-            new OpenApiSecurityScheme
+            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
             {
-                Reference = new OpenApiReference
+                Reference = new Microsoft.OpenApi.Models.OpenApiReference
                 {
-                    Type = ReferenceType.SecurityScheme,
+                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
                     Id = "Bearer"
                 }
             },
@@ -45,7 +44,19 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// Add Infrastructure services
+// Add CORS
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
+
+// Add Application and Infrastructure layers
+builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
 var app = builder.Build();
@@ -54,44 +65,36 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "GreatSoft.Be API V1");
-        c.RoutePrefix = "swagger"; // Set Swagger UI at /swagger
-    });
+    app.UseSwaggerUI();
 }
 
 app.UseHttpsRedirection();
-
+app.UseCors("AllowAll");
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapControllers();
 
-// Ensure database is created and seed initial data
+// Seed database
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
-    var context = services.GetRequiredService<ApplicationDbContext>();
-    var passwordService = services.GetRequiredService<GreatSoft.Be.Application.Interfaces.IPasswordService>();
-    var configuration = services.GetRequiredService<IConfiguration>();
-    
-    // Check if database should be recreated
-    var recreateDatabase = configuration.GetValue<bool>("DatabaseSettings:RecreateDatabaseOnStartup", false);
-    
-    if (recreateDatabase)
+    try
     {
-        // Delete and recreate database
-        await DataSeeder.EnsureDatabaseCreatedAsync(context);
+        var context = services.GetRequiredService<ApplicationDbContext>();
+        var passwordService = services.GetRequiredService<IPasswordService>();
+        
+        // Seed basic data (roles and admin users)
+        await DbSeeder.SeedAsync(context, passwordService);
+        
+        // Seed dummy data (companies, communities, managers, residents, vehicles, pets)
+        await DummyDataSeeder.SeedDummyDataAsync(context, passwordService);
     }
-    else
+    catch (Exception ex)
     {
-        // Ensure database exists (create if not exists, but don't delete existing)
-        await context.Database.EnsureCreatedAsync();
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "An error occurred while seeding the database.");
     }
-    
-    // Seed initial data
-    await DataSeeder.SeedDataAsync(context, passwordService);
 }
 
 app.Run();
+

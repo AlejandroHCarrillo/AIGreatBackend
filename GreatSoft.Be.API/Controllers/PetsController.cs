@@ -1,5 +1,6 @@
 using GreatSoft.Be.Application.DTOs.Pet;
-using GreatSoft.Be.Application.Services;
+using GreatSoft.Be.Application.Interfaces;
+using GreatSoft.Be.Domain.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -18,16 +19,16 @@ public class PetsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<PetDto>>> GetAllPets()
+    public async Task<ActionResult<IEnumerable<PetDto>>> GetAll()
     {
-        var pets = await _petService.GetAllPetsAsync();
+        var pets = await _petService.GetAllAsync();
         return Ok(pets);
     }
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<PetDto>> GetPetById(Guid id)
+    public async Task<ActionResult<PetDto>> GetById(int id)
     {
-        var pet = await _petService.GetPetByIdAsync(id);
+        var pet = await _petService.GetByIdAsync(id);
         if (pet == null)
         {
             return NotFound();
@@ -35,20 +36,18 @@ public class PetsController : ControllerBase
         return Ok(pet);
     }
 
-    [HttpGet("resident/{residentId}")]
-    public async Task<ActionResult<IEnumerable<PetDto>>> GetPetsByResidentId(Guid residentId)
-    {
-        var pets = await _petService.GetPetsByResidentIdAsync(residentId);
-        return Ok(pets);
-    }
-
     [HttpPost]
-    public async Task<ActionResult<PetDto>> CreatePet(CreatePetRequest request)
+    public async Task<ActionResult<PetDto>> Create([FromBody] CreatePetDto createPetDto)
     {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
         try
         {
-            var pet = await _petService.CreatePetAsync(request);
-            return CreatedAtAction(nameof(GetPetById), new { id = pet.Id }, pet);
+            var pet = await _petService.CreateAsync(createPetDto);
+            return CreatedAtAction(nameof(GetById), new { id = pet.Id }, pet);
         }
         catch (InvalidOperationException ex)
         {
@@ -57,29 +56,31 @@ public class PetsController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    public async Task<ActionResult<PetDto>> UpdatePet(Guid id, UpdatePetRequest request)
+    public async Task<ActionResult<PetDto>> Update(int id, [FromBody] UpdatePetDto updatePetDto)
     {
-        try
+        if (!ModelState.IsValid)
         {
-            var pet = await _petService.UpdatePetAsync(id, request);
-            return Ok(pet);
+            return BadRequest(ModelState);
         }
-        catch (InvalidOperationException ex)
+
+        var pet = await _petService.UpdateAsync(id, updatePetDto);
+        if (pet == null)
         {
-            return BadRequest(new { message = ex.Message });
+            return NotFound();
         }
+        return Ok(pet);
     }
 
     [HttpDelete("{id}")]
-    public async Task<IActionResult> DeletePet(Guid id)
+    [Authorize(Roles = RoleConstants.Admin)]
+    public async Task<IActionResult> Delete(int id)
     {
-        var deleted = await _petService.DeletePetAsync(id);
-        if (!deleted)
+        var result = await _petService.DeleteAsync(id);
+        if (!result)
         {
             return NotFound();
         }
         return NoContent();
     }
 }
-
 

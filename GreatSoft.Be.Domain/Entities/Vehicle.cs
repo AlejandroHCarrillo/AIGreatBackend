@@ -1,20 +1,19 @@
+using GreatSoft.Be.Domain.Common;
+
 namespace GreatSoft.Be.Domain.Entities;
 
-public class Vehicle
+public class Vehicle : BaseEntity
 {
-    public Guid Id { get; set; }
-    public Guid ResidentId { get; set; }
-    public string Brand { get; set; } = string.Empty; // Marca
-    public Guid VehicleTypeId { get; set; }
-    public string Model { get; set; } = string.Empty; // Modelo
-    public int Year { get; set; } // Año
-    public string Color { get; set; } = string.Empty; // Color
-    public string LicensePlate { get; set; } = string.Empty; // Placas
-    public DateTime CreatedAt { get; set; }
-    
-    // Navigation properties
-    public Resident Resident { get; set; } = null!;
-    public VehicleType VehicleType { get; set; } = null!;
-}
+    public string LicensePlate { get; set; } = string.Empty;
+    public string? Brand { get; set; }
+    public string? Model { get; set; }
+    public string? Color { get; set; }
+    public int? Year { get; set; }
+    public int CommunityId { get; set; }
+    public int OwnerId { get; set; }
 
+    // Navigation properties
+    public virtual Community Community { get; set; } = null!;
+    public virtual User Owner { get; set; } = null!;
+}
 

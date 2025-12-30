@@ -1,10 +1,10 @@
-using GreatSoft.Be.Domain.Entities;
+using System.Security.Claims;
 
 namespace GreatSoft.Be.Application.Interfaces;
 
 public interface IJwtService
 {
-    string GenerateToken(User user);
+    string GenerateToken(int userId, string email, string role);
+    ClaimsPrincipal? ValidateToken(string token);
 }
-
 

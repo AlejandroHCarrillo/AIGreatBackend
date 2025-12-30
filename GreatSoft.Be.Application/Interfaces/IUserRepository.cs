@@ -4,9 +4,9 @@ namespace GreatSoft.Be.Application.Interfaces;
 
 public interface IUserRepository : IRepository<User>
 {
-    Task<User?> GetByUsernameAsync(string username);
     Task<User?> GetByEmailAsync(string email);
-    Task<User?> GetByUsernameOrEmailAsync(string usernameOrEmail);
+    Task<User?> GetByIdWithRoleAsync(int id);
+    Task<IEnumerable<User>> GetByCompanyIdAsync(int companyId);
+    Task<IEnumerable<User>> GetByRoleIdAsync(int roleId);
 }
-
 

@@ -1,16 +1,17 @@
+using GreatSoft.Be.Domain.Common;
+
 namespace GreatSoft.Be.Domain.Entities;
 
-public class Company
+public class Company : BaseEntity
 {
-    public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
-    public string Address { get; set; } = string.Empty;
-    public string ContactName { get; set; } = string.Empty;
-    public string Phone { get; set; } = string.Empty;
-    public string Email { get; set; } = string.Empty;
-    public DateTime CreatedAt { get; set; }
-    
-    // Navigation property
-    public ICollection<CompanyUser> CompanyUsers { get; set; } = new List<CompanyUser>();
+    public string? Address { get; set; }
+    public string? Phone { get; set; }
+    public string? Email { get; set; }
+    public string? TaxId { get; set; }
+
+    // Navigation properties
+    public virtual ICollection<User> Users { get; set; } = new List<User>();
+    public virtual ICollection<Community> Communities { get; set; } = new List<Community>();
 }
 

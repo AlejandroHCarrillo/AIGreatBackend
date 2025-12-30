@@ -15,11 +15,5 @@ public class CompanyRepository : Repository<Company>, ICompanyRepository
     {
         return await _dbSet.FirstOrDefaultAsync(c => c.Name == name);
     }
-
-    public async Task<Company?> GetByEmailAsync(string email)
-    {
-        return await _dbSet.FirstOrDefaultAsync(c => c.Email == email);
-    }
 }
-
 

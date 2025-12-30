@@ -11,19 +11,38 @@ public class ResidentVisitRepository : Repository<ResidentVisit>, IResidentVisit
     {
     }
 
-    public override async Task<ResidentVisit?> GetByIdAsync(Guid id)
+    public override async Task<ResidentVisit?> GetByIdAsync(int id)
     {
         return await _dbSet
-            .Include(v => v.Resident)
-            .FirstOrDefaultAsync(v => v.Id == id);
+            .Include(rv => rv.Community)
+            .Include(rv => rv.Resident)
+            .FirstOrDefaultAsync(rv => rv.Id == id);
     }
 
-    public override async Task<IEnumerable<ResidentVisit>> GetAllAsync()
+    public async Task<IEnumerable<ResidentVisit>> GetByCommunityIdAsync(int communityId)
     {
         return await _dbSet
-            .Include(v => v.Resident)
+            .Include(rv => rv.Community)
+            .Include(rv => rv.Resident)
+            .Where(rv => rv.CommunityId == communityId)
+            .ToListAsync();
+    }
+
+    public async Task<IEnumerable<ResidentVisit>> GetByResidentIdAsync(int residentId)
+    {
+        return await _dbSet
+            .Include(rv => rv.Community)
+            .Where(rv => rv.ResidentId == residentId)
+            .ToListAsync();
+    }
+
+    public async Task<IEnumerable<ResidentVisit>> GetByDateRangeAsync(DateTime startDate, DateTime endDate)
+    {
+        return await _dbSet
+            .Include(rv => rv.Community)
+            .Include(rv => rv.Resident)
+            .Where(rv => rv.VisitDate >= startDate && rv.VisitDate <= endDate)
             .ToListAsync();
     }
 }
-
 

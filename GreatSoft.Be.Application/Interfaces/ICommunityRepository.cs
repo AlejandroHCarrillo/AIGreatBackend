@@ -4,7 +4,7 @@ namespace GreatSoft.Be.Application.Interfaces;
 
 public interface ICommunityRepository : IRepository<Community>
 {
-    Task<Community?> GetByNameAsync(string name);
+    Task<IEnumerable<Community>> GetByCompanyIdAsync(int companyId);
+    Task<Community?> GetByIdWithDetailsAsync(int id);
 }
-
 

@@ -11,48 +11,35 @@ public class UserRepository : Repository<User>, IUserRepository
     {
     }
 
-    public async Task<User?> GetByUsernameAsync(string username)
-    {
-        return await _dbSet
-            .Include(u => u.Role)
-            .Include(u => u.CompanyUsers)
-                .ThenInclude(cu => cu.Company)
-            .FirstOrDefaultAsync(u => u.Username == username);
-    }
-
     public async Task<User?> GetByEmailAsync(string email)
     {
         return await _dbSet
             .Include(u => u.Role)
-            .Include(u => u.CompanyUsers)
-                .ThenInclude(cu => cu.Company)
+            .Include(u => u.Company)
             .FirstOrDefaultAsync(u => u.Email == email);
     }
 
-    public async Task<User?> GetByUsernameOrEmailAsync(string usernameOrEmail)
+    public async Task<User?> GetByIdWithRoleAsync(int id)
     {
         return await _dbSet
             .Include(u => u.Role)
-            .Include(u => u.CompanyUsers)
-                .ThenInclude(cu => cu.Company)
-            .FirstOrDefaultAsync(u => u.Username == usernameOrEmail || u.Email == usernameOrEmail);
-    }
-
-    public override async Task<User?> GetByIdAsync(Guid id)
-    {
-        return await _dbSet
-            .Include(u => u.Role)
-            .Include(u => u.CompanyUsers)
-                .ThenInclude(cu => cu.Company)
+            .Include(u => u.Company)
             .FirstOrDefaultAsync(u => u.Id == id);
     }
 
-    public override async Task<IEnumerable<User>> GetAllAsync()
+    public async Task<IEnumerable<User>> GetByCompanyIdAsync(int companyId)
     {
         return await _dbSet
             .Include(u => u.Role)
-            .Include(u => u.CompanyUsers)
-                .ThenInclude(cu => cu.Company)
+            .Where(u => u.CompanyId == companyId)
+            .ToListAsync();
+    }
+
+    public async Task<IEnumerable<User>> GetByRoleIdAsync(int roleId)
+    {
+        return await _dbSet
+            .Include(u => u.Role)
+            .Where(u => u.RoleId == roleId)
             .ToListAsync();
     }
 }

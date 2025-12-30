@@ -7,192 +7,115 @@ namespace GreatSoft.Be.Application.Services;
 public class VehicleService : IVehicleService
 {
     private readonly IVehicleRepository _vehicleRepository;
-    private readonly IRepository<Resident> _residentRepository;
-    private readonly IRepository<VehicleType> _vehicleTypeRepository;
+    private readonly ICommunityRepository _communityRepository;
+    private readonly IUserRepository _userRepository;
 
     public VehicleService(
         IVehicleRepository vehicleRepository,
-        IRepository<Resident> residentRepository,
-        IRepository<VehicleType> vehicleTypeRepository)
+        ICommunityRepository communityRepository,
+        IUserRepository userRepository)
     {
         _vehicleRepository = vehicleRepository;
-        _residentRepository = residentRepository;
-        _vehicleTypeRepository = vehicleTypeRepository;
+        _communityRepository = communityRepository;
+        _userRepository = userRepository;
     }
 
-    public async Task<IEnumerable<VehicleDto>> GetAllVehiclesAsync()
+    public async Task<IEnumerable<VehicleDto>> GetAllAsync()
     {
         var vehicles = await _vehicleRepository.GetAllAsync();
-        return vehicles.Select(v => new VehicleDto
-        {
-            Id = v.Id,
-            ResidentId = v.ResidentId,
-            ResidentName = v.Resident?.FullName ?? string.Empty,
-            Brand = v.Brand,
-            VehicleTypeId = v.VehicleTypeId,
-            VehicleTypeName = v.VehicleType?.Name ?? string.Empty,
-            Model = v.Model,
-            Year = v.Year,
-            Color = v.Color,
-            LicensePlate = v.LicensePlate,
-            CreatedAt = v.CreatedAt
-        });
+        return vehicles.Select(MapToDto);
     }
 
-    public async Task<VehicleDto?> GetVehicleByIdAsync(Guid id)
+    public async Task<VehicleDto?> GetByIdAsync(int id)
     {
         var vehicle = await _vehicleRepository.GetByIdAsync(id);
         if (vehicle == null) return null;
-
-        return new VehicleDto
-        {
-            Id = vehicle.Id,
-            ResidentId = vehicle.ResidentId,
-            ResidentName = vehicle.Resident?.FullName ?? string.Empty,
-            Brand = vehicle.Brand,
-            VehicleTypeId = vehicle.VehicleTypeId,
-            VehicleTypeName = vehicle.VehicleType?.Name ?? string.Empty,
-            Model = vehicle.Model,
-            Year = vehicle.Year,
-            Color = vehicle.Color,
-            LicensePlate = vehicle.LicensePlate,
-            CreatedAt = vehicle.CreatedAt
-        };
+        return MapToDto(vehicle);
     }
 
-    public async Task<IEnumerable<VehicleDto>> GetVehiclesByResidentIdAsync(Guid residentId)
+    public async Task<VehicleDto> CreateAsync(CreateVehicleDto createVehicleDto)
     {
-        var vehicles = await _vehicleRepository.GetAllAsync();
-        return vehicles
-            .Where(v => v.ResidentId == residentId)
-            .Select(v => new VehicleDto
-            {
-                Id = v.Id,
-                ResidentId = v.ResidentId,
-                ResidentName = v.Resident?.FullName ?? string.Empty,
-                Brand = v.Brand,
-                VehicleTypeId = v.VehicleTypeId,
-                VehicleTypeName = v.VehicleType?.Name ?? string.Empty,
-                Model = v.Model,
-                Year = v.Year,
-                Color = v.Color,
-                LicensePlate = v.LicensePlate,
-                CreatedAt = v.CreatedAt
-            });
-    }
-
-    public async Task<VehicleDto> CreateVehicleAsync(CreateVehicleRequest request)
-    {
-        if (await _vehicleRepository.GetByLicensePlateAsync(request.LicensePlate) != null)
+        // Check if license plate already exists
+        var existingVehicle = await _vehicleRepository.GetByLicensePlateAsync(createVehicleDto.LicensePlate);
+        if (existingVehicle != null)
         {
             throw new InvalidOperationException("License plate already exists");
         }
 
-        var resident = await _residentRepository.GetByIdAsync(request.ResidentId);
-        if (resident == null)
+        // Verify community exists
+        var community = await _communityRepository.GetByIdAsync(createVehicleDto.CommunityId);
+        if (community == null)
         {
-            throw new InvalidOperationException("Resident not found");
+            throw new InvalidOperationException("Community not found");
         }
 
-        var vehicleType = await _vehicleTypeRepository.GetByIdAsync(request.VehicleTypeId);
-        if (vehicleType == null)
+        // Verify owner exists
+        var owner = await _userRepository.GetByIdAsync(createVehicleDto.OwnerId);
+        if (owner == null)
         {
-            throw new InvalidOperationException("VehicleType not found");
+            throw new InvalidOperationException("Owner not found");
         }
 
         var vehicle = new Vehicle
         {
-            Id = Guid.NewGuid(),
-            ResidentId = request.ResidentId,
-            Brand = request.Brand,
-            VehicleTypeId = request.VehicleTypeId,
-            Model = request.Model,
-            Year = request.Year,
-            Color = request.Color,
-            LicensePlate = request.LicensePlate,
+            LicensePlate = createVehicleDto.LicensePlate,
+            Brand = createVehicleDto.Brand,
+            Model = createVehicleDto.Model,
+            Color = createVehicleDto.Color,
+            Year = createVehicleDto.Year,
+            CommunityId = createVehicleDto.CommunityId,
+            OwnerId = createVehicleDto.OwnerId,
+            IsActive = true,
             CreatedAt = DateTime.UtcNow
         };
 
         await _vehicleRepository.AddAsync(vehicle);
-
-        return new VehicleDto
-        {
-            Id = vehicle.Id,
-            ResidentId = vehicle.ResidentId,
-            ResidentName = resident.FullName,
-            Brand = vehicle.Brand,
-            VehicleTypeId = vehicle.VehicleTypeId,
-            VehicleTypeName = vehicleType.Name,
-            Model = vehicle.Model,
-            Year = vehicle.Year,
-            Color = vehicle.Color,
-            LicensePlate = vehicle.LicensePlate,
-            CreatedAt = vehicle.CreatedAt
-        };
+        var createdVehicle = await _vehicleRepository.GetByIdAsync(vehicle.Id);
+        return MapToDto(createdVehicle!);
     }
 
-    public async Task<VehicleDto> UpdateVehicleAsync(Guid id, UpdateVehicleRequest request)
+    public async Task<VehicleDto?> UpdateAsync(int id, UpdateVehicleDto updateVehicleDto)
     {
         var vehicle = await _vehicleRepository.GetByIdAsync(id);
-        if (vehicle == null)
-        {
-            throw new InvalidOperationException("Vehicle not found");
-        }
+        if (vehicle == null) return null;
 
-        if (vehicle.LicensePlate != request.LicensePlate && await _vehicleRepository.GetByLicensePlateAsync(request.LicensePlate) != null)
-        {
-            throw new InvalidOperationException("License plate already exists");
-        }
-
-        var resident = await _residentRepository.GetByIdAsync(request.ResidentId);
-        if (resident == null)
-        {
-            throw new InvalidOperationException("Resident not found");
-        }
-
-        var vehicleType = await _vehicleTypeRepository.GetByIdAsync(request.VehicleTypeId);
-        if (vehicleType == null)
-        {
-            throw new InvalidOperationException("VehicleType not found");
-        }
-
-        vehicle.ResidentId = request.ResidentId;
-        vehicle.Brand = request.Brand;
-        vehicle.VehicleTypeId = request.VehicleTypeId;
-        vehicle.Model = request.Model;
-        vehicle.Year = request.Year;
-        vehicle.Color = request.Color;
-        vehicle.LicensePlate = request.LicensePlate;
+        vehicle.Brand = updateVehicleDto.Brand;
+        vehicle.Model = updateVehicleDto.Model;
+        vehicle.Color = updateVehicleDto.Color;
+        vehicle.Year = updateVehicleDto.Year;
+        vehicle.IsActive = updateVehicleDto.IsActive;
+        vehicle.UpdatedAt = DateTime.UtcNow;
 
         await _vehicleRepository.UpdateAsync(vehicle);
-
-        return new VehicleDto
-        {
-            Id = vehicle.Id,
-            ResidentId = vehicle.ResidentId,
-            ResidentName = resident.FullName,
-            Brand = vehicle.Brand,
-            VehicleTypeId = vehicle.VehicleTypeId,
-            VehicleTypeName = vehicleType.Name,
-            Model = vehicle.Model,
-            Year = vehicle.Year,
-            Color = vehicle.Color,
-            LicensePlate = vehicle.LicensePlate,
-            CreatedAt = vehicle.CreatedAt
-        };
+        var updatedVehicle = await _vehicleRepository.GetByIdAsync(vehicle.Id);
+        return MapToDto(updatedVehicle!);
     }
 
-    public async Task<bool> DeleteVehicleAsync(Guid id)
+    public async Task<bool> DeleteAsync(int id)
     {
         var vehicle = await _vehicleRepository.GetByIdAsync(id);
-        if (vehicle == null)
-        {
-            return false;
-        }
+        if (vehicle == null) return false;
 
         await _vehicleRepository.DeleteAsync(vehicle);
         return true;
     }
-}
 
+    private static VehicleDto MapToDto(Vehicle vehicle)
+    {
+        return new VehicleDto
+        {
+            Id = vehicle.Id,
+            LicensePlate = vehicle.LicensePlate,
+            Brand = vehicle.Brand,
+            Model = vehicle.Model,
+            Color = vehicle.Color,
+            Year = vehicle.Year,
+            CommunityId = vehicle.CommunityId,
+            CommunityName = vehicle.Community?.Name ?? string.Empty,
+            OwnerId = vehicle.OwnerId,
+            OwnerName = vehicle.Owner != null ? $"{vehicle.Owner.FirstName} {vehicle.Owner.LastName}" : string.Empty,
+            IsActive = vehicle.IsActive
+        };
+    }
+}
 

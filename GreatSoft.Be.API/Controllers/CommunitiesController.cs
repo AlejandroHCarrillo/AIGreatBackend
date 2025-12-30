@@ -1,5 +1,6 @@
 using GreatSoft.Be.Application.DTOs.Community;
-using GreatSoft.Be.Application.Services;
+using GreatSoft.Be.Application.Interfaces;
+using GreatSoft.Be.Domain.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -17,23 +18,17 @@ public class CommunitiesController : ControllerBase
         _communityService = communityService;
     }
 
-    /// <summary>
-    /// Get all communities
-    /// </summary>
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<CommunityDto>>> GetAllCommunities()
+    public async Task<ActionResult<IEnumerable<CommunityDto>>> GetAll()
     {
-        var communities = await _communityService.GetAllCommunitiesAsync();
+        var communities = await _communityService.GetAllAsync();
         return Ok(communities);
     }
 
-    /// <summary>
-    /// Get community by ID
-    /// </summary>
     [HttpGet("{id}")]
-    public async Task<ActionResult<CommunityDto>> GetCommunityById(Guid id)
+    public async Task<ActionResult<CommunityDto>> GetById(int id)
     {
-        var community = await _communityService.GetCommunityByIdAsync(id);
+        var community = await _communityService.GetByIdAsync(id);
         if (community == null)
         {
             return NotFound();
@@ -41,16 +36,19 @@ public class CommunitiesController : ControllerBase
         return Ok(community);
     }
 
-    /// <summary>
-    /// Create a new community
-    /// </summary>
     [HttpPost]
-    public async Task<ActionResult<CommunityDto>> CreateCommunity(CreateCommunityRequest request)
+    [Authorize(Roles = RoleConstants.Admin)]
+    public async Task<ActionResult<CommunityDto>> Create([FromBody] CreateCommunityDto createCommunityDto)
     {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
         try
         {
-            var community = await _communityService.CreateCommunityAsync(request);
-            return CreatedAtAction(nameof(GetCommunityById), new { id = community.Id }, community);
+            var community = await _communityService.CreateAsync(createCommunityDto);
+            return CreatedAtAction(nameof(GetById), new { id = community.Id }, community);
         }
         catch (InvalidOperationException ex)
         {
@@ -58,36 +56,33 @@ public class CommunitiesController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Update an existing community
-    /// </summary>
     [HttpPut("{id}")]
-    public async Task<ActionResult<CommunityDto>> UpdateCommunity(Guid id, UpdateCommunityRequest request)
+    [Authorize(Roles = RoleConstants.Admin)]
+    public async Task<ActionResult<CommunityDto>> Update(int id, [FromBody] UpdateCommunityDto updateCommunityDto)
     {
-        try
+        if (!ModelState.IsValid)
         {
-            var community = await _communityService.UpdateCommunityAsync(id, request);
-            return Ok(community);
+            return BadRequest(ModelState);
         }
-        catch (InvalidOperationException ex)
+
+        var community = await _communityService.UpdateAsync(id, updateCommunityDto);
+        if (community == null)
         {
-            return BadRequest(new { message = ex.Message });
+            return NotFound();
         }
+        return Ok(community);
     }
 
-    /// <summary>
-    /// Delete a community
-    /// </summary>
     [HttpDelete("{id}")]
-    public async Task<IActionResult> DeleteCommunity(Guid id)
+    [Authorize(Roles = RoleConstants.Admin)]
+    public async Task<IActionResult> Delete(int id)
     {
-        var deleted = await _communityService.DeleteCommunityAsync(id);
-        if (!deleted)
+        var result = await _communityService.DeleteAsync(id);
+        if (!result)
         {
             return NotFound();
         }
         return NoContent();
     }
 }
-
 

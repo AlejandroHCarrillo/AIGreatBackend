@@ -1,24 +1,23 @@
+using GreatSoft.Be.Domain.Common;
+
 namespace GreatSoft.Be.Domain.Entities;
 
-public class User
+public class User : BaseEntity
 {
-    public Guid Id { get; set; }
-    public string FirstName { get; set; } = string.Empty;
-    public string LastName { get; set; } = string.Empty;
-    public string Username { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public string PasswordHash { get; set; } = string.Empty;
-    public bool IsActive { get; set; } = true;
-    public DateTime CreatedAt { get; set; }
-    
+    public string FirstName { get; set; } = string.Empty;
+    public string LastName { get; set; } = string.Empty;
+    public string? Phone { get; set; }
+    public int RoleId { get; set; }
+    public int? CompanyId { get; set; }
+
     // Navigation properties
-    public Guid RoleId { get; set; }
-    public Role Role { get; set; } = null!;
-    
-    // CompanyUsers relationship (many-to-many through CompanyUser)
-    public ICollection<CompanyUser> CompanyUsers { get; set; } = new List<CompanyUser>();
-    
-    // ResidentUser relationship (one-to-one)
-    public ResidentUser? ResidentUser { get; set; }
+    public virtual Role Role { get; set; } = null!;
+    public virtual Company? Company { get; set; }
+    public virtual ICollection<Pet> Pets { get; set; } = new List<Pet>();
+    public virtual ICollection<Vehicle> Vehicles { get; set; } = new List<Vehicle>();
+    public virtual ICollection<ResidentVisit> ResidentVisits { get; set; } = new List<ResidentVisit>();
+    public virtual ICollection<ResidentPreference> ResidentPreferences { get; set; } = new List<ResidentPreference>();
 }
 

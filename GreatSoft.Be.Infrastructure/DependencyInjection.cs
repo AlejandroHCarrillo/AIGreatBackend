@@ -1,7 +1,4 @@
-using System.Text;
 using GreatSoft.Be.Application.Interfaces;
-using GreatSoft.Be.Application.Services;
-using GreatSoft.Be.Domain.Entities;
 using GreatSoft.Be.Infrastructure.Data;
 using GreatSoft.Be.Infrastructure.Repositories;
 using GreatSoft.Be.Infrastructure.Services;
@@ -10,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 namespace GreatSoft.Be.Infrastructure;
 
@@ -17,13 +15,13 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        // Database - Using InMemory for now, can be changed to SQL Server
+        // Database
         var connectionString = configuration.GetConnectionString("DefaultConnection");
         
         if (!string.IsNullOrEmpty(connectionString))
         {
             services.AddDbContext<ApplicationDbContext>(options =>
-                options.UseSqlServer(connectionString));
+                options.UseSqlServer(connectionString, sql => sql.EnableRetryOnFailure()));
         }
         else
         {
@@ -36,37 +34,32 @@ public static class DependencyInjection
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRoleRepository, RoleRepository>();
         services.AddScoped<ICompanyRepository, CompanyRepository>();
-        services.AddScoped<ICompanyUserRepository, CompanyUserRepository>();
         services.AddScoped<ICommunityRepository, CommunityRepository>();
-        services.AddScoped<IRepository<CommunityType>, Repository<CommunityType>>();
-        services.AddScoped<IResidentVisitRepository, ResidentVisitRepository>();
-        services.AddScoped<IVehicleRepository, VehicleRepository>();
         services.AddScoped<IPetRepository, PetRepository>();
+        services.AddScoped<IVehicleRepository, VehicleRepository>();
         services.AddScoped<IResidentProviderRepository, ResidentProviderRepository>();
-        services.AddScoped<IRepository<Resident>, Repository<Resident>>();
-        services.AddScoped<IRepository<VehicleType>, Repository<VehicleType>>();
-        services.AddScoped<IRepository<ProviderServiceType>, Repository<ProviderServiceType>>();
+        services.AddScoped<IResidentVisitRepository, ResidentVisitRepository>();
+        services.AddScoped<IAmenityRepository, AmenityRepository>();
+        services.AddScoped<IResidentPreferenceRepository, ResidentPreferenceRepository>();
 
-        // Services
+        // Infrastructure Services
         services.AddScoped<IPasswordService, PasswordService>();
         services.AddScoped<IJwtService, JwtService>();
-
-        // Application Services
-        services.AddScoped<IAuthService, AuthService>();
-        services.AddScoped<IUserService, UserService>();
-        services.AddScoped<IRoleService, RoleService>();
-        services.AddScoped<ICompanyService, CompanyService>();
-        services.AddScoped<ICommunityService, CommunityService>();
-        services.AddScoped<IResidentVisitService, ResidentVisitService>();
-        services.AddScoped<IVehicleService, VehicleService>();
-        services.AddScoped<IPetService, PetService>();
-        services.AddScoped<IResidentProviderService, ResidentProviderService>();
 
         // JWT Authentication
         var jwtSettings = configuration.GetSection("JwtSettings");
         var secretKey = jwtSettings["SecretKey"] ?? "YourSuperSecretKeyThatShouldBeAtLeast32CharactersLong!";
-        var issuer = jwtSettings["Issuer"] ?? "GreatSoft.Be";
-        var audience = jwtSettings["Audience"] ?? "GreatSoft.Be";
+        var issuer = jwtSettings["Issuer"] ?? "GreatSoft";
+        var audience = jwtSettings["Audience"] ?? "GreatSoftUsers";
+
+        // Ensure secret key is at least 32 characters for HMAC SHA256
+        if (string.IsNullOrEmpty(secretKey) || secretKey.Length < 32)
+        {
+            throw new InvalidOperationException("JWT SecretKey must be at least 32 characters long.");
+        }
+
+        var keyBytes = Encoding.UTF8.GetBytes(secretKey);
+        var signingKey = new SymmetricSecurityKey(keyBytes);
 
         services.AddAuthentication(options =>
         {
@@ -77,14 +70,15 @@ public static class DependencyInjection
         {
             options.TokenValidationParameters = new TokenValidationParameters
             {
-                ValidateIssuer = true,
-                ValidateAudience = true,
-                ValidateLifetime = true,
                 ValidateIssuerSigningKey = true,
+                IssuerSigningKey = signingKey,
+                ValidateIssuer = true,
                 ValidIssuer = issuer,
+                ValidateAudience = true,
                 ValidAudience = audience,
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
-                ClockSkew = TimeSpan.Zero
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.Zero,
+                RequireExpirationTime = true
             };
         });
 
