@@ -44,32 +44,96 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// Add CORS
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowAll", policy =>
-    {
-        policy.AllowAnyOrigin()
-              .AllowAnyMethod()
-              .AllowAnyHeader();
-    });
-});
-
 // Add Application and Infrastructure layers
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
+// Configure CORS
+builder.Services.AddCors(options =>
+{
+    // Policy para desarrollo - permite múltiples orígenes comunes
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.WithOrigins(
+                "http://localhost:4200", 
+                "https://localhost:4200",
+                "http://localhost:3000",
+                "http://127.0.0.1:4200",
+                "http://127.0.0.1:3000",
+                "http://localhost:5173", // Vite
+                "http://localhost:5174"  // Vite alternativo
+              )
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+    
+    // Policy más permisiva para desarrollo
+    // Permite cualquier origen localhost o 127.0.0.1 en cualquier puerto
+    if (builder.Environment.IsDevelopment())
+    {
+        options.AddPolicy("AllowAll", policy =>
+        {
+            policy.SetIsOriginAllowed(origin =>
+            {
+                if (string.IsNullOrEmpty(origin))
+                    return false;
+                    
+                try
+                {
+                    // Permitir cualquier origen que sea localhost o 127.0.0.1
+                    var uri = new Uri(origin);
+                    return uri.Host == "localhost" || 
+                           uri.Host == "127.0.0.1" || 
+                           uri.Host == "::1" ||
+                           origin.Contains("localhost", StringComparison.OrdinalIgnoreCase) ||
+                           origin.Contains("127.0.0.1", StringComparison.OrdinalIgnoreCase);
+                }
+                catch
+                {
+                    // Si no se puede parsear el URI, permitir si contiene localhost
+                    return origin.Contains("localhost", StringComparison.OrdinalIgnoreCase) ||
+                           origin.Contains("127.0.0.1", StringComparison.OrdinalIgnoreCase);
+                }
+            })
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials()
+            .SetPreflightMaxAge(TimeSpan.FromSeconds(3600)); // Cache preflight por 1 hora
+        });
+    }
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline
+// IMPORTANTE: CORS debe estar ANTES de UseHttpsRedirection y UseAuthentication
+
+// Aplicar CORS primero
 if (app.Environment.IsDevelopment())
 {
+    // En desarrollo, usar política más permisiva
+    app.UseCors("AllowAll");
+    
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "GreatSoft.Be API V1");
+        c.RoutePrefix = "swagger"; // Set Swagger UI at /swagger
+    });
+}
+else
+{
+    // En producción, usar política específica
+    app.UseCors("AllowFrontend");
 }
 
-app.UseHttpsRedirection();
-app.UseCors("AllowAll");
+// En desarrollo, NO redirigir a HTTPS para evitar problemas con CORS
+// En producción, sí redirigir
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

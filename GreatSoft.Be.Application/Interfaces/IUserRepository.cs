@@ -8,5 +8,7 @@ public interface IUserRepository : IRepository<User>
     Task<User?> GetByIdWithRoleAsync(int id);
     Task<IEnumerable<User>> GetByCompanyIdAsync(int companyId);
     Task<IEnumerable<User>> GetByRoleIdAsync(int roleId);
+    Task<User?> GetByUsernameOrEmailAsync(string usernameOrEmail);
+    Task<User?> GetByIdWithResidentAsync(Guid id);
 }
 

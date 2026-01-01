@@ -64,6 +64,7 @@ public class UserService : IUserService
 
         var user = new User
         {
+            Username = createUserDto.Username ?? createUserDto.Email, // Usar Email como Username si no se proporciona
             Email = createUserDto.Email,
             PasswordHash = _passwordService.HashPassword(createUserDto.Password),
             FirstName = createUserDto.FirstName,
@@ -124,11 +125,19 @@ public class UserService : IUserService
         return true;
     }
 
+    public Task<Guid?> GetResidentIdByUserIdAsync(Guid userId)
+    {
+        // Por ahora, retornar null ya que no hay una relación directa con Resident
+        // En el futuro, si se necesita, se puede implementar
+        return Task.FromResult<Guid?>(null);
+    }
+
     private static UserDto MapToDto(User user)
     {
         return new UserDto
         {
             Id = user.Id,
+            Username = user.Username,
             Email = user.Email,
             FirstName = user.FirstName,
             LastName = user.LastName,

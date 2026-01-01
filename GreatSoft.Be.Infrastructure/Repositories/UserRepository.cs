@@ -27,6 +27,26 @@ public class UserRepository : Repository<User>, IUserRepository
             .FirstOrDefaultAsync(u => u.Id == id);
     }
 
+    public async Task<User?> GetByUsernameOrEmailAsync(string usernameOrEmail)
+    {
+        return await _dbSet
+            .Include(u => u.Role)
+            .Include(u => u.Company)
+            .FirstOrDefaultAsync(u => u.Username == usernameOrEmail || u.Email == usernameOrEmail);
+    }
+    
+    public async Task<User?> GetByIdWithResidentAsync(Guid id)
+    {
+        // Convertir Guid a int para buscar en la base de datos
+        // Nota: Esta conversión es temporal, idealmente User.Id debería ser Guid
+        var bytes = id.ToByteArray();
+        var intId = BitConverter.ToInt32(bytes, 0);
+        return await _dbSet
+            .Include(u => u.Role)
+            .Include(u => u.Company)
+            .FirstOrDefaultAsync(u => u.Id == intId);
+    }
+
     public async Task<IEnumerable<User>> GetByCompanyIdAsync(int companyId)
     {
         return await _dbSet

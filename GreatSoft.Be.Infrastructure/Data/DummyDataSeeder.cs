@@ -26,6 +26,7 @@ public static class DummyDataSeeder
         {
             var adminUser = new User
             {
+                Username = "elgrandeahc",
                 Email = "elgrandeahc@greatsoft.com",
                 PasswordHash = passwordService.HashPassword("abc123"),
                 FirstName = "Admin",
@@ -130,6 +131,7 @@ public static class DummyDataSeeder
             {
                 var manager = new User
                 {
+                    Username = managerInfo.Email.Split('@')[0], // Usar la parte antes del @ como username
                     Email = managerInfo.Email,
                     PasswordHash = passwordService.HashPassword("Manager123!"),
                     FirstName = managerInfo.FirstName,
@@ -179,6 +181,7 @@ public static class DummyDataSeeder
                 {
                     var resident = new User
                     {
+                        Username = email.Split('@')[0], // Usar la parte antes del @ como username
                         Email = email,
                         PasswordHash = passwordService.HashPassword("Resident123!"),
                         FirstName = residentInfo.FirstName,

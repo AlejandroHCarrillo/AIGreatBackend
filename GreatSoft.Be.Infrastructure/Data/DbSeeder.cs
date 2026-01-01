@@ -73,6 +73,7 @@ public static class DbSeeder
             {
                 var adminUser = new User
                 {
+                    Username = "admin",
                     Email = "admin@greatsoft.com",
                     PasswordHash = passwordService.HashPassword("Admin123!"),
                     FirstName = "Admin",
@@ -97,6 +98,7 @@ public static class DbSeeder
             {
                 var sysAdminUser = new User
                 {
+                    Username = "sysadmin",
                     Email = "sysadmin@greatsoft.com",
                     PasswordHash = passwordService.HashPassword("SysAdmin123!"),
                     FirstName = "SysAdmin",

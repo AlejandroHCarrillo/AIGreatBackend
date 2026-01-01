@@ -12,10 +12,12 @@ namespace GreatSoft.Be.API.Controllers;
 public class UsersController : ControllerBase
 {
     private readonly IUserService _userService;
+    private readonly ILogger<UsersController> _logger;
 
-    public UsersController(IUserService userService)
+    public UsersController(IUserService userService, ILogger<UsersController> logger)
     {
         _userService = userService;
+        _logger = logger;
     }
 
     [HttpGet]
@@ -90,6 +92,35 @@ public class UsersController : ControllerBase
             return NotFound();
         }
         return NoContent();
+    }
+
+    [HttpGet("me/resident")]
+    [ProducesResponseType(typeof(Guid), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<Guid>> GetCurrentUserResidentId()
+    {
+        try
+        {
+            // Obtener el ID del usuario desde el token JWT
+            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+            if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+            {
+                return Unauthorized(new { message = "Invalid user token" });
+            }
+
+            var residentId = await _userService.GetResidentIdByUserIdAsync(userId);
+            if (residentId == null)
+            {
+                return NotFound(new { message = "User is not associated with a resident" });
+            }
+
+            return Ok(residentId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting resident ID for current user");
+            return StatusCode(500, new { message = "An error occurred while retrieving the resident ID" });
+        }
     }
 }
 

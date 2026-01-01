@@ -27,29 +27,46 @@ public class AuthService : IAuthService
         _configuration = configuration;
     }
 
+    /// <summary>
+    /// Convierte un int a Guid. Usa el int como parte del Guid.
+    /// </summary>
+    private static Guid IntToGuid(int value)
+    {
+        var bytes = new byte[16];
+        BitConverter.GetBytes(value).CopyTo(bytes, 0);
+        return new Guid(bytes);
+    }
+
     public async Task<LoginResponse?> LoginAsync(LoginRequest request)
     {
-        var user = await _userRepository.GetByEmailAsync(request.Email);
+        var user = await _userRepository.GetByUsernameOrEmailAsync(request.Username);
         if (user == null || !user.IsActive)
         {
-            return null;
+            throw new UnauthorizedAccessException("Invalid username or password");
         }
 
         if (!_passwordService.VerifyPassword(request.Password, user.PasswordHash))
         {
-            return null;
+            throw new UnauthorizedAccessException("Invalid username or password");
         }
 
         var token = _jwtService.GenerateToken(user.Id, user.Email, user.Role.Name);
         var expirationMinutes = int.Parse(_configuration["JwtSettings:ExpirationMinutes"] ?? "60");
+        var expiresAt = DateTime.UtcNow.AddMinutes(expirationMinutes);
+
+        // Por ahora, no hay información de residente separada
+        // En el futuro, si se necesita, se puede agregar una relación
+        ResidentInfoDto? residentInfo = null;
 
         return new LoginResponse
         {
             Token = token,
+            UserId = IntToGuid(user.Id),
+            Username = user.Username,
             Email = user.Email,
             Role = user.Role.Name,
-            UserId = user.Id,
-            ExpiresAt = DateTime.UtcNow.AddMinutes(expirationMinutes)
+            ExpiresAt = expiresAt,
+            ResidentInfo = residentInfo
         };
     }
 
@@ -72,6 +89,7 @@ public class AuthService : IAuthService
         // Create new user
         var user = new User
         {
+            Username = request.Username ?? request.Email, // Usar Email como Username si no se proporciona
             Email = request.Email,
             PasswordHash = _passwordService.HashPassword(request.Password),
             FirstName = request.FirstName,
@@ -95,13 +113,17 @@ public class AuthService : IAuthService
         var token = _jwtService.GenerateToken(createdUser.Id, createdUser.Email, createdUser.Role.Name);
         var expirationMinutes = int.Parse(_configuration["JwtSettings:ExpirationMinutes"] ?? "60");
 
+        var expiresAt = DateTime.UtcNow.AddMinutes(expirationMinutes);
+
         return new LoginResponse
         {
             Token = token,
+            UserId = IntToGuid(createdUser.Id),
+            Username = createdUser.Username ?? createdUser.Email,
             Email = createdUser.Email,
             Role = createdUser.Role.Name,
-            UserId = createdUser.Id,
-            ExpiresAt = DateTime.UtcNow.AddMinutes(expirationMinutes)
+            ExpiresAt = expiresAt,
+            ResidentInfo = null // No hay residente en el registro inicial
         };
     }
 }
